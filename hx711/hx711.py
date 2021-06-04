@@ -5,6 +5,7 @@ This file holds HX711 class and LoadCell class which is used within HX711 in ord
 """
 
 from time import sleep, perf_counter
+from statistics import mean, median, stdev
 from hx711.utils import convert_to_list
 
 SIMULATE_PI = False
@@ -163,6 +164,7 @@ class HX711:
         
     def _read(self):
         """
+        _read performs a single datapoint read across all load cells. The data is stored within the LoadCell instances
         read each bit from HX711, convert to signed int, and validate
         operation:
             1) set SCK output HIGH, loop until all dout pins are LOW (_prepare_to_read)
@@ -197,6 +199,44 @@ class HX711:
             return False
         
         return True
+    
+    def read_raw(self, readings_to_average: int = 10):
+        """ read raw data for all load cells, does not perform unit conversion
+
+        Args:
+            readings_to_average (int, optional): number of raw readings to average together. Defaults to 10.
+
+        Returns:
+            list of int: returns raw data measurements without unit conversion
+        """
+        
+        for load_cell in self._load_cells:
+            load_cell._init_set_of_reads()
+        for _ in range(readings_to_average):
+            self._read()
+        for load_cell in self.load_cells:
+            load_cell._calculate_reads_mean()
+            
+        if self._debug_mode:
+            print(f'Finished read operation. Load cell results:\n{"\n".join([str(vars(lc)) for lc in self.load_cells])}')
+    
+        load_cell_means = [(lc.read_mean + lc._offset) for lc in self.load_cells]
+        return load_cell_means
+    
+    def read_weight(self, readings_to_average: int = 10):
+        """ read raw data for all load cells and then return with weight conversion
+
+        Args:
+            readings_to_average (int, optional): number of raw readings to average together. Defaults to 10.
+
+        Returns:
+            list of int: returns data measurements with weight conversion
+        """
+        
+        # perform raw read operation to get means and then offset and divide by weight multiple
+        self.read_raw(readings_to_average)
+        load_cell_weights = [(lc.read_mean + lc._offset)/lc._weight_multiple for lc in self.load_cells]
+        return load_cell_weights
             
 class LoadCell:
     """
@@ -210,11 +250,28 @@ class LoadCell:
         self._dout_pin = dout_pin
         self._debug_mode = debug_mode
         self._offset = 0.
-        self._scale_ratio = 1.
+        self._weight_multiple = 1.
         self._last_raw_read = None
         self.raw_reads = []
         self.reads = []
+        self._reads_filtered = []
+        self._max_stdev_from_med = 1.0 # maximium deviation from median
+        self._read_med = None
+        self._devs_from_med = []
+        self._read_stdev = 0.
+        self._ratios_to_stdev = []
+        self.reads_mean = None
         
+    def _init_set_of_reads(self):
+        self.raw_reads = []
+        self.reads = []
+        self._reads_filtered = []
+        self._read_med = None
+        self._devs_from_med = []
+        self._read_stdev = 0.
+        self._ratios_to_stdev = []
+        self.reads_mean = None
+    
     def _init_raw_read(self):
         # set raw read value to zero, so each bit can be shifted into this value
         self._current_raw_read = 0
@@ -224,7 +281,7 @@ class LoadCell:
         self._current_raw_read = (self._current_raw_read << 1) | GPIO.input(self._dout_pin)
         
     def _finish_raw_read(self):
-        # append current raw read value to raw_reads list
+        # append current raw read value and signed value to raw_reads list and reads list
         self.raw_reads.append(self._current_raw_read)
         # convert to signed value
         self._current_signed_value = self.convert_to_signed_value(self._current_raw_read)
@@ -247,8 +304,47 @@ class LoadCell:
         else:  # else do not do anything the value is positive number
             signed_value = raw_value
         return signed_value
-    
-    def _init_set_of_reads(self):
-        self.raw_reads = []
-        self.reads = []
         
+    def _calculate_reads_mean(self):
+        """
+        analyzes read values to calculate mean value
+            1) filter by valid data only
+            2) calculate median and standard deviations from median
+            3) filter based on the standard deviations from the median
+            4) calculate mean of remaining values
+
+        Returns:
+            bool: pass or fail boolean based on filtering of data
+        """
+        
+        # filter reads to valid data only
+        self._reads_filtered = [r for r in self.reads if ((r is not None) and (type(r) is int))]
+        if not self._reads_filtered:
+            # no values after filter, so return False to indicate no read value
+            return False
+        
+        # get median and deviations from med
+        self._read_med = median(self._reads_filtered)
+        self._devs_from_med = [(abs(r - self._read_med)) for r in self._reads_filtered]
+        self._read_stdev = stdev(self._devs_from_med)
+        
+        # filter by number of standard deviations from med
+        if self._read_stdev:
+            self._ratios_to_stdev = [(dev / self._read_stdev) for dev in self._devs_from_med]
+        else:
+            # stdev is 0. Therefore set to the median
+            self.reads_mean = self._read_med
+            return True
+        _new_reads_filtered = []
+        for (read_val, ratio) in zip(self._reads_filtered, self._ratios_to_stdev):
+            if ratio <= self._max_stdev_from_med:
+                _new_reads_filtered.append(read_val)
+        self._reads_filtered = _new_reads_filtered
+        
+        # get mean value
+        if not self._reads_filtered:
+            # no values after filter, so return False to indicate no read value
+            return False
+        self.reads_mean = mean(self._reads_filtered)
+        
+        return True
