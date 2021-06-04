@@ -25,7 +25,8 @@ class HX711:
         sck_pin (int): Raspberry Pi clock output pin where sck signal to HX711 is sent
         gain_channel_A (int): Optional, by default value 128. Options (128 || 64)
         select_channel (str): Optional, by default 'A'. Options ('A' || 'B')
-        debug_mode (bool): Optional, False by default
+        debug_mode (bool): Optional, prints out info to consolde if True, False by default
+        simulate_pi (bool): Optional, skips GPIo portions of code if True, False by default
 
     Raises:
         TypeError:
@@ -39,9 +40,11 @@ class HX711:
                  channel_A_gain: int = 128,
                  channel_select: str = 'A',
                  debug_mode: bool = False,
+                 simulate_pi: bool = False,
                  ):
         
         self._debug_mode = debug_mode
+        self._simulate_pi = simulate_pi or SIMULATE_PI
         self._set_dout_pins(dout_pins)
         self._set_sck_pin(sck_pin)
         # init GPIO before channel because a read operation is required for channel initialization
@@ -65,7 +68,7 @@ class HX711:
                     
     def _init_gpio(self):
         # init GPIO
-        if not SIMULATE_PI:
+        if not self._simulate_pi:
             GPIO.setup(self._sck_pin, GPIO.OUT)  # sck_pin is output only
             for dout in self._dout_pins:
                 GPIO.setup(dout, GPIO.IN)  # dout_pin is input only
@@ -88,7 +91,7 @@ class HX711:
         # initialize load cell instances
         self._load_cells = []
         for dout_pin in self._dout_pins:
-            self._load_cells.append(LoadCell(dout_pin, self._debug_mode))
+            self._load_cells.append(LoadCell(dout_pin, self._debug_mode, self._simulate_pi))
 
     def _prepare_to_read(self):
         """
@@ -97,7 +100,7 @@ class HX711:
         Returns:
             bool : True if ready to read else False 
         """
-        if SIMULATE_PI:
+        if self._simulate_pi:
             return True
         
         GPIO.output(self._sck_pin, False)  # start by setting the pd_sck to 0
@@ -126,7 +129,7 @@ class HX711:
             bool: True if pulse was shorter than 60 ms
         """
         
-        if SIMULATE_PI:
+        if self._simulate_pi:
             return True
         
         pulse_start = perf_counter()
@@ -235,7 +238,8 @@ class HX711:
             load_cell._calculate_measurement()
             
         if self._debug_mode:
-            print(f'Finished read operation. Load cell results:\n{"\n".join([str(vars(load_cell)) for load_cell in self._load_cells])}')
+            all_load_cell_vars = "\n".join([str(vars(load_cell)) for load_cell in self._load_cells])
+            print(f'Finished read operation. Load cell results:\n{all_load_cell_vars}')
 
         load_cell_measurements = [load_cell.measurement_from_offset for load_cell in self._load_cells]
         return load_cell_measurements
@@ -258,7 +262,7 @@ class HX711:
     def power_down(self):
         """ turn off the hx711 by setting SCK pin LOW then HIGH """
         
-        if not SIMULATE_PI:
+        if not self._simulate_pi:
             GPIO.output(self._sck_pin, False)
             GPIO.output(self._sck_pin, True)
         sleep(0.01)
@@ -266,7 +270,7 @@ class HX711:
     def power_up(self):
         """ turn on the hx711 by setting SCK pin LOW """
         
-        if not SIMULATE_PI:
+        if not self._simulate_pi:
             GPIO.output(self._sck_pin, False)
         sleep(0.01)
         
@@ -298,9 +302,11 @@ class LoadCell:
     def __init__(self,
                  dout_pin,
                  debug_mode,
+                 simulate_pi,
                  ):
-        self._dout_pin = dout_pin
         self._debug_mode = debug_mode
+        self._simulate_pi = simulate_pi or SIMULATE_PI
+        self._dout_pin = dout_pin
         self._offset = 0.
         self._weight_multiple = 1.
         self._last_raw_read = None
@@ -345,7 +351,7 @@ class LoadCell:
     def _read(self):
         """ left shift by one bit then bitwise OR with the new bit """
         
-        if not SIMULATE_PI:
+        if not self._simulate_pi:
             self._current_raw_read = (self._current_raw_read << 1) | GPIO.input(self._dout_pin)
         else:
             # if simulate, generate random 0 or 1 for data
