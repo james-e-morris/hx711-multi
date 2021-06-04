@@ -97,7 +97,7 @@ class HX711:
             bool : True if ready to read else False 
         """
         
-        GPIO.output(self._pd_sck, False)  # start by setting the pd_sck to 0
+        GPIO.output(self._sck_pin, False)  # start by setting the pd_sck to 0
         
         # check if ready a maximum of 20 times (~200ms)
         ready = True
@@ -123,8 +123,8 @@ class HX711:
         """
         
         pulse_start = perf_counter()
-        GPIO.output(self._pd_sck, True)
-        GPIO.output(self._pd_sck, False)
+        GPIO.output(self._sck_pin, True)
+        GPIO.output(self._sck_pin, False)
         pulse_end = perf_counter()
         # check if pulse lasted 60ms or longer. If so, HX711 enters power down mode
         if pulse_end - pulse_start >= 0.00006:  # check if the hx 711 did not turn off...
@@ -237,6 +237,30 @@ class HX711:
         self.read_raw(readings_to_average)
         load_cell_weights = [(lc.read_mean + lc._offset)/lc._weight_multiple for lc in self.load_cells]
         return load_cell_weights
+    
+    def power_down(self):
+        """ turn off the hx711 by setting SCK pin LOW then HIGH """
+        GPIO.output(self._sck_pin, False)
+        GPIO.output(self._sck_pin, True)
+        sleep(0.01)
+        
+    def power_up(self):
+        """ turn on the hx711 by setting SCK pin LOW """
+        GPIO.output(self._sck_pin, False)
+        sleep(0.01)
+        
+    def reset(self):
+        """ resets the hx711 and prepare it for the next reading.
+
+        Returns: True if pass, False if readings do not come back
+        """
+        self.power_down()
+        self.power_up()
+        result = self.read_raw(6)
+        if result:
+            return True
+        else:
+            return False
             
 class LoadCell:
     """
