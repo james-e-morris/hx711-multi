@@ -12,15 +12,15 @@ def convert_to_list(input, _type=int, _default_output=None):
         default_val (optional): value to pass if no other criteria is used. Defaults to None.
     """
     output = _default_output
-    if isinstance(input, list):
+    if type(input is list):
         if _type is not None:
-            if all([isinstance(x, _type) for x in input]):
+            if all([(type(x) is _type) for x in input]):
                 # set to output if is list and all instances match type
                 output = input
         else:
             # set to output if is list (no type specified)
             output = input
-    elif (isinstance(input, _type) and (_type is not None)) or ((input is not None) and (_type is None)):
+    elif ((type(input) is _type) and (_type is not None)) or ((input is not None) and (_type is None)):
         # set to output as a single element list if is type match, or no type was specified and input is not None
         output = [input]
     return output
