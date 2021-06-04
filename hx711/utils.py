@@ -4,7 +4,9 @@ This file holds general utilities used elsewhere in the code
 """
 
 def convert_to_list(input, _type=int, _default_output=None):
-    """[summary]
+    """
+    Converts the input to a list if not already.
+    Also performs checks for type of list items and will set output to the default value if type criteria isn't met
 
     Args:
         input: input that you are analyzing to convert to list of type
