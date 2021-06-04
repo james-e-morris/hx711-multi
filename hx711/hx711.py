@@ -104,8 +104,9 @@ class HX711:
         for _ in range(20):
             # confirm all dout pins are ready (LOW)
             ready = True
-            for _load_cell in self._load_cells:
-                if GPIO.input(_load_cell._dout_pin) == 0:
+            load_cell: LoadCell
+            for load_cell in self._load_cells:
+                if GPIO.input(load_cell._dout_pin) == 0:
                     ready = False
             if ready:
                 break
@@ -183,14 +184,17 @@ class HX711:
         
         # read first 24 bits of data (the raw data bits)
         load_cell: LoadCell
+        # init each load cell raw read data
         for load_cell in self._load_cells:
             load_cell._init_raw_read()
+        # for each bit in 24 bits, perform load cell read
         for _ in range(24):
             # pulse sck high to request each bit
             if not self._pulse_sck_high():
                 return False
             for load_cell in self._load_cells:
                 load_cell._read()
+        # finalize each load cell raw read
         for load_cell in self._load_cells:
             load_cell._finish_raw_read()
                 
@@ -210,18 +214,25 @@ class HX711:
             list of int: returns raw data measurements without unit conversion
         """
         
+        if not (1 <= readings_to_average <= 100):
+            raise ValueError(f'Parameter "readings_to_average" must be between 1 and 99. Received: {readings_to_average}')
+        
+        load_cell: LoadCell
+        # init each load cell for a set of reads
         for load_cell in self._load_cells:
             load_cell._init_set_of_reads()
+        # perform reads
         for _ in range(readings_to_average):
             self._read()
-        for load_cell in self.load_cells:
-            load_cell._calculate_reads_mean()
+        # for each load cell, calculate measurement values
+        for load_cell in self._load_cells:
+            load_cell._calculate_measurement()
             
         if self._debug_mode:
-            print(f'Finished read operation. Load cell results:\n{"\n".join([str(vars(lc)) for lc in self.load_cells])}')
-    
-        load_cell_means = [(lc.read_mean + lc._offset) for lc in self.load_cells]
-        return load_cell_means
+            print(f'Finished read operation. Load cell results:\n{"\n".join([str(vars(load_cell)) for load_cell in self._load_cells])}')
+
+        load_cell_measurements = [load_cell.measurement_from_offset for load_cell in self._load_cells]
+        return load_cell_measurements
     
     def read_weight(self, readings_to_average: int = 10):
         """ read raw data for all load cells and then return with weight conversion
@@ -235,7 +246,7 @@ class HX711:
         
         # perform raw read operation to get means and then offset and divide by weight multiple
         self.read_raw(readings_to_average)
-        load_cell_weights = [(lc.read_mean + lc._offset)/lc._weight_multiple for lc in self.load_cells]
+        load_cell_weights = [load_cell.weight for load_cell in self._load_cells]
         return load_cell_weights
     
     def power_down(self):
@@ -261,6 +272,13 @@ class HX711:
             return True
         else:
             return False
+        
+    def zero(self, readings_to_average: int = 30):
+        
+        self.read_raw(readings_to_average)
+        load_cell: LoadCell
+        for load_cell in self._load_cells:
+            load_cell.zero_from_mean()
             
 class LoadCell:
     """
@@ -284,9 +302,23 @@ class LoadCell:
         self._devs_from_med = []
         self._read_stdev = 0.
         self._ratios_to_stdev = []
-        self.reads_mean = None
+        self.measurement = None # mean of reads
+        self.measurement_from_offset = None # measurement minus offset
+        self.weight = None # measurement_from_offset divided by weight_multiple
+        
+    def zero_from_mean(self):
+        """ sets offset based on current value for measurement """
+        if self.measurement:
+            self._offset = self.measurement
+        else:
+            raise ValueError(f'Trying to zero LoadCell (dout={self._dout_pin}) with a bad mean value\nValue of measurement: {self.measurement}')
+        
+    def set_weight_multiple(self, weight_multiple: float):
+        """ simply sets multiple. example: scale indicates value of 5000 for 1 gram on scale, weight_multiple = 5000 """
+        self._weight_multiple = weight_multiple
         
     def _init_set_of_reads(self):
+        """ init arrays and calculated values before beginning a set of reads for a measurement """
         self.raw_reads = []
         self.reads = []
         self._reads_filtered = []
@@ -294,18 +326,18 @@ class LoadCell:
         self._devs_from_med = []
         self._read_stdev = 0.
         self._ratios_to_stdev = []
-        self.reads_mean = None
+        self.measurement = None
     
     def _init_raw_read(self):
-        # set raw read value to zero, so each bit can be shifted into this value
+        """ set raw read value to zero, so each bit can be shifted into this value """
         self._current_raw_read = 0
     
     def _read(self):
-        # left shift by one bit then bitwise OR with the new bit
+        """ left shift by one bit then bitwise OR with the new bit """
         self._current_raw_read = (self._current_raw_read << 1) | GPIO.input(self._dout_pin)
         
     def _finish_raw_read(self):
-        # append current raw read value and signed value to raw_reads list and reads list
+        """ append current raw read value and signed value to raw_reads list and reads list """
         self.raw_reads.append(self._current_raw_read)
         # convert to signed value
         self._current_signed_value = self.convert_to_signed_value(self._current_raw_read)
@@ -329,7 +361,7 @@ class LoadCell:
             signed_value = raw_value
         return signed_value
         
-    def _calculate_reads_mean(self):
+    def _calculate_measurement(self):
         """
         analyzes read values to calculate mean value
             1) filter by valid data only
@@ -357,7 +389,7 @@ class LoadCell:
             self._ratios_to_stdev = [(dev / self._read_stdev) for dev in self._devs_from_med]
         else:
             # stdev is 0. Therefore set to the median
-            self.reads_mean = self._read_med
+            self.measurement = self._read_med
             return True
         _new_reads_filtered = []
         for (read_val, ratio) in zip(self._reads_filtered, self._ratios_to_stdev):
@@ -369,6 +401,8 @@ class LoadCell:
         if not self._reads_filtered:
             # no values after filter, so return False to indicate no read value
             return False
-        self.reads_mean = mean(self._reads_filtered)
+        self.measurement = mean(self._reads_filtered)
+        self.measurement_from_offset = self.measurement - self._offset
+        self.weight = self.measurement_from_offset / self._weight_multiple
         
         return True
