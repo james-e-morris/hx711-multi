@@ -6,6 +6,7 @@ This file holds HX711 class and LoadCell class which is used within HX711 in ord
 
 from time import sleep, perf_counter
 from statistics import mean, median, stdev
+from random import randint
 from hx711.utils import convert_to_list
 
 SIMULATE_PI = False
@@ -96,6 +97,8 @@ class HX711:
         Returns:
             bool : True if ready to read else False 
         """
+        if SIMULATE_PI:
+            return True
         
         GPIO.output(self._sck_pin, False)  # start by setting the pd_sck to 0
         
@@ -122,6 +125,9 @@ class HX711:
         Returns:
             bool: True if pulse was shorter than 60 ms
         """
+        
+        if SIMULATE_PI:
+            return True
         
         pulse_start = perf_counter()
         GPIO.output(self._sck_pin, True)
@@ -251,13 +257,17 @@ class HX711:
     
     def power_down(self):
         """ turn off the hx711 by setting SCK pin LOW then HIGH """
-        GPIO.output(self._sck_pin, False)
-        GPIO.output(self._sck_pin, True)
+        
+        if not SIMULATE_PI:
+            GPIO.output(self._sck_pin, False)
+            GPIO.output(self._sck_pin, True)
         sleep(0.01)
         
     def power_up(self):
         """ turn on the hx711 by setting SCK pin LOW """
-        GPIO.output(self._sck_pin, False)
+        
+        if not SIMULATE_PI:
+            GPIO.output(self._sck_pin, False)
         sleep(0.01)
         
     def reset(self):
@@ -334,7 +344,12 @@ class LoadCell:
     
     def _read(self):
         """ left shift by one bit then bitwise OR with the new bit """
-        self._current_raw_read = (self._current_raw_read << 1) | GPIO.input(self._dout_pin)
+        
+        if not SIMULATE_PI:
+            self._current_raw_read = (self._current_raw_read << 1) | GPIO.input(self._dout_pin)
+        else:
+            # if simulate, generate random 0 or 1 for data
+            self._current_raw_read = (self._current_raw_read << 1) | randint(0,1)
         
     def _finish_raw_read(self):
         """ append current raw read value and signed value to raw_reads list and reads list """
