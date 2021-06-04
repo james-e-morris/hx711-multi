@@ -14,7 +14,7 @@ def convert_to_list(input, _type=int, _default_output=None):
         default_val (optional): value to pass if no other criteria is used. Defaults to None.
     """
     output = _default_output
-    if type(input is list):
+    if type(input) is list:
         if _type is not None:
             if all([(type(x) is _type) for x in input]):
                 # set to output if is list and all instances match type

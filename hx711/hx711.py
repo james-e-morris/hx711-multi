@@ -112,7 +112,8 @@ class HX711:
             ready = True
             load_cell: LoadCell
             for load_cell in self._load_cells:
-                if GPIO.input(load_cell._dout_pin) == 0:
+                gpio_input_read = GPIO.input(load_cell._dout_pin)
+                if gpio_input_read != 0:
                     ready = False
             if ready:
                 break
@@ -188,7 +189,7 @@ class HX711:
         # prepare for read by setting SCK pin and checking that each load cell is ready
         if not self._prepare_to_read():
             if self._debug_mode:
-                print('_prepare_to_read() not ready after 20 iterations\n')
+                print('_prepare_to_read() not ready after 20 iterations')
             return False
         
         # read first 24 bits of data (the raw data bits)
@@ -369,10 +370,10 @@ class LoadCell:
             
     def convert_to_signed_value(self, raw_value):
         # convert to signed value after verifying value is valid
-        #check if data is valid by checking betwwen valid range: 0x800000 - 0x7fffff
-        if not (0x7fffff < raw_value < 0x800000):
+        # raise error if value is exactly the min or max value, or a value of all 1's
+        if raw_value in [0x800000, 0x7FFFFF, 0xFFFFFF]:
             if self._debug_mode:
-                print('Invalid raw value detected: {}\n'.format(raw_value))
+                print('Invalid raw value detected: {}'.format(hex(raw_value)))
             return None  # return None because the data is invalid
         # calculate int from 2's complement
         # check if the sign bit is 1, indicating a negative number
