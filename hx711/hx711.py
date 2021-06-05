@@ -45,6 +45,7 @@ class HX711:
         
         self._debug_mode = debug_mode
         self._simulate_pi = simulate_pi or SIMULATE_PI
+        self._single_load_cell = False
         self._set_dout_pins(dout_pins)
         self._set_sck_pin(sck_pin)
         # init GPIO before channel because a read operation is required for channel initialization
@@ -54,7 +55,9 @@ class HX711:
         self._init_load_cells()
                 
     def _set_dout_pins(self, dout_pins):
-        # set dout_pins as array of ints. If just an int input, turn it into a single array of int
+        """ set dout_pins as array of ints. If just an int input, turn it into a single array of int """
+        if type(dout_pins) is int:
+            self._single_load_cell = True
         self._dout_pins = convert_to_list(dout_pins, _type=int, _default_output=None)
         if self._dout_pins is None:
             # raise error if pins not set properly
@@ -113,6 +116,7 @@ class HX711:
             load_cell: LoadCell
             for load_cell in self._load_cells:
                 gpio_input_read = GPIO.input(load_cell._dout_pin)
+                # print(load_cell._dout_pin, gpio_input_read)
                 if gpio_input_read != 0:
                     ready = False
             if ready:
@@ -243,7 +247,10 @@ class HX711:
             print(f'Finished read operation. Load cell results:\n{all_load_cell_vars}')
 
         load_cell_measurements = [load_cell.measurement_from_offset for load_cell in self._load_cells]
-        return load_cell_measurements
+        if self._single_load_cell:
+            return load_cell_measurements[0]
+        else:
+            return load_cell_measurements
     
     def read_weight(self, readings_to_average: int = 10):
         """ read raw data for all load cells and then return with weight conversion
@@ -258,10 +265,13 @@ class HX711:
         # perform raw read operation to get means and then offset and divide by weight multiple
         self.read_raw(readings_to_average)
         load_cell_weights = [load_cell.weight for load_cell in self._load_cells]
-        return load_cell_weights
+        if self._single_load_cell:
+            return load_cell_weights[0]
+        else:
+            return load_cell_weights
     
     def power_down(self):
-        """ turn off the hx711 by setting SCK pin LOW then HIGH """
+        """ turn off all hx711 by setting SCK pin LOW then HIGH """
         
         if not self._simulate_pi:
             GPIO.output(self._sck_pin, False)
@@ -269,7 +279,7 @@ class HX711:
         sleep(0.01)
         
     def power_up(self):
-        """ turn on the hx711 by setting SCK pin LOW """
+        """ turn on all hx711 by setting SCK pin LOW """
         
         if not self._simulate_pi:
             GPIO.output(self._sck_pin, False)
@@ -289,7 +299,8 @@ class HX711:
             return False
         
     def zero(self, readings_to_average: int = 30):
-        
+        """ perform raw read of a few samples to get a raw mean measurement, and set this as zero offset """
+
         self.read_raw(readings_to_average)
         load_cell: LoadCell
         for load_cell in self._load_cells:
@@ -400,6 +411,9 @@ class LoadCell:
         if not self._reads_filtered:
             # no values after filter, so return False to indicate no read value
             return False
+        elif len(self._reads_filtered) == 1:
+            self.measurement = self._reads_filtered[0]
+            return True
         
         # get median and deviations from med
         self._read_med = median(self._reads_filtered)
