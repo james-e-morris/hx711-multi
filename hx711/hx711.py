@@ -4,18 +4,12 @@
 This file holds HX711 class and LoadCell class which is used within HX711 in order to track multiple load cells
 """
 
+import RPi.GPIO as GPIO
 from time import sleep, perf_counter
 from statistics import mean, median, stdev
 from random import randint
 from hx711.utils import convert_to_list
 import logging
-
-SIMULATE_PI = False
-try:
-    import RPi.GPIO as GPIO
-except: 
-    # set to simulate mode if unable to import GPIO (non raspberry pi run)
-    SIMULATE_PI = True
 
 class HX711:
     """
@@ -30,7 +24,6 @@ class HX711:
             Options ('A' || 'B')
         log_level (str or int): Optional, prints out info to consolde based on level of log
             Options (0:'NOTSET', 10:'DEBUG', 20:'INFO', 30:'WARN', 40:'ERROR', 50:'CRITICAL')
-        simulate_pi (bool): Optional, skips GPIo portions of code if True, False by default
 
     Raises:
         TypeError:
@@ -44,11 +37,9 @@ class HX711:
                  channel_A_gain: int = 128,
                  channel_select: str = 'A',
                  log_level: str = 'WARN',
-                 simulate_pi: bool = False,
                  ):
         
         self._init_logger(log_level)
-        self._simulate_pi = simulate_pi or SIMULATE_PI
         self._single_load_cell = False
         self._set_dout_pins(dout_pins)
         self._set_sck_pin(sck_pin)
@@ -60,6 +51,7 @@ class HX711:
                 
     def _init_logger(self, log_level):
         """ initialize logger for the HX711 class """
+        self._log_level = log_level
         self._logger = logging.getLogger('HX711')
         self._logger.setLevel(log_level)
 
@@ -80,10 +72,9 @@ class HX711:
                     
     def _init_gpio(self):
         # init GPIO
-        if not self._simulate_pi:
-            GPIO.setup(self._sck_pin, GPIO.OUT)  # sck_pin is output only
-            for dout in self._dout_pins:
-                GPIO.setup(dout, GPIO.IN)  # dout_pin is input only
+        GPIO.setup(self._sck_pin, GPIO.OUT)  # sck_pin is output only
+        for dout in self._dout_pins:
+            GPIO.setup(dout, GPIO.IN)  # dout_pin is input only
             
     def _set_channel_a_gain(self, channel_A_gain):
         # check channel_select for type and value. Default is A if None
@@ -103,7 +94,7 @@ class HX711:
         # initialize load cell instances
         self._load_cells = []
         for dout_pin in self._dout_pins:
-            self._load_cells.append(LoadCell(dout_pin, self._log_level, self._simulate_pi))
+            self._load_cells.append(LoadCell(dout_pin, self._log_level))
 
     def _prepare_to_read(self):
         """
@@ -112,8 +103,6 @@ class HX711:
         Returns:
             bool : True if ready to read else False 
         """
-        if self._simulate_pi:
-            return True
         
         GPIO.output(self._sck_pin, False)  # start by setting the pd_sck to 0
         
@@ -141,9 +130,6 @@ class HX711:
         Returns:
             bool: True if pulse was shorter than 60 ms
         """
-        
-        if self._simulate_pi:
-            return True
         
         pulse_start = perf_counter()
         GPIO.output(self._sck_pin, True)
@@ -277,17 +263,13 @@ class HX711:
     
     def power_down(self):
         """ turn off all hx711 by setting SCK pin LOW then HIGH """
-        
-        if not self._simulate_pi:
-            GPIO.output(self._sck_pin, False)
-            GPIO.output(self._sck_pin, True)
+        GPIO.output(self._sck_pin, False)
+        GPIO.output(self._sck_pin, True)
         sleep(0.01)
         
     def power_up(self):
         """ turn on all hx711 by setting SCK pin LOW """
-        
-        if not self._simulate_pi:
-            GPIO.output(self._sck_pin, False)
+        GPIO.output(self._sck_pin, False)
         sleep(0.01)
         
     def reset(self):
@@ -322,7 +304,6 @@ class LoadCell:
                  simulate_pi,
                  ):
         self._init_logger(log_level, dout_pin)
-        self._simulate_pi = simulate_pi or SIMULATE_PI
         self._dout_pin = dout_pin
         self._offset = 0.
         self._weight_multiple = 1.
@@ -372,12 +353,7 @@ class LoadCell:
     
     def _read(self):
         """ left shift by one bit then bitwise OR with the new bit """
-        
-        if not self._simulate_pi:
-            self._current_raw_read = (self._current_raw_read << 1) | GPIO.input(self._dout_pin)
-        else:
-            # if simulate, generate random 0 or 1 for data
-            self._current_raw_read = (self._current_raw_read << 1) | randint(0,1)
+        self._current_raw_read = (self._current_raw_read << 1) | GPIO.input(self._dout_pin)
         
     def _finish_raw_read(self):
         """ append current raw read value and signed value to raw_reads list and reads list """
