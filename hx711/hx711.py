@@ -301,7 +301,6 @@ class LoadCell:
     def __init__(self,
                  dout_pin,
                  log_level,
-                 simulate_pi,
                  ):
         self._init_logger(log_level, dout_pin)
         self._dout_pin = dout_pin
