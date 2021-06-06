@@ -8,7 +8,7 @@ from time import sleep, perf_counter
 from statistics import mean, median, stdev
 from random import randint
 from hx711.utils import convert_to_list
-from logging import getLogger, Logger
+import logging
 
 SIMULATE_PI = False
 try:
@@ -59,7 +59,8 @@ class HX711:
         self._init_load_cells()
                 
     def _init_logger(self, log_level):
-        self._logger = getLogger('hx711-multi')
+        """ initialize logger for the HX711 class """
+        self._logger = logging.getLogger('HX711')
         self._logger.setLevel(log_level)
 
     def _set_dout_pins(self, dout_pins):
@@ -339,7 +340,8 @@ class LoadCell:
         self.weight = None # measurement_from_offset divided by weight_multiple
 
     def _init_logger(self, log_level, dout_pin):
-        self._logger = getLogger(f'hx711-multi-dout{dout_pin}')
+        """ initialize logger with name including dout_pin for this load cell """
+        self._logger = logging.getLogger(f'HX711-dout_{dout_pin}')
         self._logger.setLevel(log_level)
         
     def zero_from_mean(self):
