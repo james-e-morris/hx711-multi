@@ -22,6 +22,10 @@ class HX711:
             Options (128 || 64)
         select_channel (str): Optional, by default 'A'
             Options ('A' || 'B')
+        all_or_nothing (bool): Optional, by default True
+            if True will only read from scales if all dout pins are ready
+            if False, will try for the maximum number of loops for ready-check, and read from the ones that are ready
+                (this will be a slower sampling rate if one or more scales is not ready)
         log_level (str or int): Optional, prints out info to consolde based on level of log
             Options (0:'NOTSET', 10:'DEBUG', 20:'INFO', 30:'WARN', 40:'ERROR', 50:'CRITICAL')
 
@@ -36,11 +40,12 @@ class HX711:
                  sck_pin: int,
                  channel_A_gain: int = 128,
                  channel_select: str = 'A',
+                 all_or_nothing: bool = True,
                  log_level: str = 'WARN',
                  ):
         
         logging.basicConfig(level=log_level, format='HX711 :: %(asctime)s :: %(levelname)s :: %(message)s')
-        self._single_load_cell = False
+        self._all_or_nothing = all_or_nothing
         self._set_dout_pins(dout_pins)
         self._set_sck_pin(sck_pin)
         # init GPIO before channel because a read operation is required for channel initialization
@@ -51,8 +56,7 @@ class HX711:
 
     def _set_dout_pins(self, dout_pins):
         """ set dout_pins as array of ints. If just an int input, turn it into a single array of int """
-        if type(dout_pins) is int:
-            self._single_load_cell = True
+        self._single_load_cell = (type(dout_pins) is int)
         self._dout_pins = convert_to_list(dout_pins, _type=int, _default_output=None)
         if self._dout_pins is None:
             # raise error if pins not set properly
@@ -102,20 +106,14 @@ class HX711:
         
         # check if ready a maximum of 20 times (~200ms)
         # should usually be about 10 iterations with 10Hz sampling
-        ready = True
         for i in range(20):
             # confirm all dout pins are ready (LOW)
-            ready = True
-            load_cell: LoadCell
-            for load_cell in self._load_cells:
-                gpio_input_read = GPIO.input(load_cell._dout_pin)
-                if gpio_input_read != 0:
-                    ready = False
-            if ready:
+            if all([load_cell._is_ready() for load_cell in self._load_cells]):
                 break
             else:
                 # if not ready sleep for 10ms before next iteration
-                sleep(0.01)  
+                sleep(0.01)
+        ready = all([load_cell._ready for load_cell in self._load_cells])
         if ready:
             logging.debug(f'checked sensor readiness, completed after {i+1} iterations')
         else:
@@ -181,26 +179,29 @@ class HX711:
         Returns:
             bool : returns True if successful. Readings are assigned to LoadCell objects
         """
-        
-        # prepare for read by setting SCK pin and checking that each load cell is ready
-        if not self._prepare_to_read():
-            return False
-        
-        # read first 24 bits of data (the raw data bits)
+
         load_cell: LoadCell
         # init each load cell raw read data
         for load_cell in self._load_cells:
             load_cell._init_raw_read()
+
+        # prepare for read by setting SCK pin and checking that each load cell is ready
+        # if _all_or_nothing and not _prepare_to_read, then do not perform the read
+        if not self._prepare_to_read() and self._all_or_nothing:
+            return False
+        
         # for each bit in 24 bits, perform load cell read
         for _ in range(24):
             # pulse sck high to request each bit
             if not self._pulse_sck_high():
                 return False
             for load_cell in self._load_cells:
-                load_cell._read()
+                if load_cell._ready:
+                    load_cell._shift_and_read()
         # finalize each load cell raw read
         for load_cell in self._load_cells:
-            load_cell._finish_raw_read()
+            if load_cell._ready:
+                load_cell._finish_raw_read()
                 
         # set channel after read
         if not self._write_channel_gain():
@@ -230,7 +231,8 @@ class HX711:
             self._read()
         # for each load cell, calculate measurement values
         for load_cell in self._load_cells:
-            load_cell._calculate_measurement()
+            if load_cell._ready:
+                load_cell._calculate_measurement()
             
         all_load_cell_vars = "\n".join([str(vars(load_cell)) for load_cell in self._load_cells])
         logging.debug(f'Finished read operation. Load cell results:\n{all_load_cell_vars}')
@@ -289,7 +291,8 @@ class HX711:
         self.read_raw(readings_to_average)
         load_cell: LoadCell
         for load_cell in self._load_cells:
-            load_cell.zero_from_mean()
+            if load_cell._ready or self._all_or_nothing:
+                load_cell.zero_from_mean()
             
 class LoadCell:
     """
@@ -302,7 +305,8 @@ class LoadCell:
         self._dout_pin = dout_pin
         self._offset = 0.
         self._weight_multiple = 1.
-        self._last_raw_read = None
+        self._ready = False
+        self._current_raw_read = 0
         self.raw_reads = []
         self.reads = []
         self._reads_filtered = []
@@ -336,12 +340,23 @@ class LoadCell:
         self._read_stdev = 0.
         self._ratios_to_stdev = []
         self.measurement = None
+        self.measurement_from_offset = None
+        self.weight = None
     
     def _init_raw_read(self):
         """ set raw read value to zero, so each bit can be shifted into this value """
+        self._ready = False
         self._current_raw_read = 0
+
+    def _is_ready(self):
+        """ return True if already _ready or GPIO input is zero """
+        if self._ready:
+            return True
+        else:
+            self._ready = (GPIO.input(self._dout_pin) == 0)
+            return self._ready
     
-    def _read(self):
+    def _shift_and_read(self):
         """ left shift by one bit then bitwise OR with the new bit """
         self._current_raw_read = (self._current_raw_read << 1) | GPIO.input(self._dout_pin)
         
