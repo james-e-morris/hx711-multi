@@ -15,7 +15,7 @@ from time import sleep, perf_counter
 GPIO.setmode(GPIO.BCM)  # set GPIO pin mode to BCM numbering
 
 
-hx711 = HX711(dout_pins=[13,21,16,26], sck_pin=20, debug_mode=False)  # create an object
+hx711 = HX711(dout_pins=[13,21,16,19], sck_pin=20, log_level='DEBUG')  # create an object
 hx711.power_down()
 hx711.power_up()
 hx711.zero()

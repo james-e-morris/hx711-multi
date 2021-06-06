@@ -8,6 +8,7 @@ from time import sleep, perf_counter
 from statistics import mean, median, stdev
 from random import randint
 from hx711.utils import convert_to_list
+from logging import getLogger, Logger
 
 SIMULATE_PI = False
 try:
@@ -23,9 +24,12 @@ class HX711:
     Args:
         dout_pin (int or [int]): Raspberry Pi GPIO pins where data from HX711 is received
         sck_pin (int): Raspberry Pi clock output pin where sck signal to HX711 is sent
-        gain_channel_A (int): Optional, by default value 128. Options (128 || 64)
-        select_channel (str): Optional, by default 'A'. Options ('A' || 'B')
-        debug_mode (bool): Optional, prints out info to consolde if True, False by default
+        gain_channel_A (int): Optional, by default value 128
+            Options (128 || 64)
+        select_channel (str): Optional, by default 'A'
+            Options ('A' || 'B')
+        log_level (str or int): Optional, prints out info to consolde based on level of log
+            Options (0:'NOTSET', 10:'DEBUG', 20:'INFO', 30:'WARN', 40:'ERROR', 50:'CRITICAL')
         simulate_pi (bool): Optional, skips GPIo portions of code if True, False by default
 
     Raises:
@@ -39,11 +43,11 @@ class HX711:
                  sck_pin: int,
                  channel_A_gain: int = 128,
                  channel_select: str = 'A',
-                 debug_mode: bool = False,
+                 log_level: str = 'WARN',
                  simulate_pi: bool = False,
                  ):
         
-        self._debug_mode = debug_mode
+        self._init_logger(log_level)
         self._simulate_pi = simulate_pi or SIMULATE_PI
         self._single_load_cell = False
         self._set_dout_pins(dout_pins)
@@ -54,6 +58,10 @@ class HX711:
         self._set_channel_select(channel_select)
         self._init_load_cells()
                 
+    def _init_logger(self, log_level):
+        self._logger = getLogger('hx711-multi')
+        self._logger.setLevel(log_level)
+
     def _set_dout_pins(self, dout_pins):
         """ set dout_pins as array of ints. If just an int input, turn it into a single array of int """
         if type(dout_pins) is int:
@@ -94,7 +102,7 @@ class HX711:
         # initialize load cell instances
         self._load_cells = []
         for dout_pin in self._dout_pins:
-            self._load_cells.append(LoadCell(dout_pin, self._debug_mode, self._simulate_pi))
+            self._load_cells.append(LoadCell(dout_pin, self._log_level, self._simulate_pi))
 
     def _prepare_to_read(self):
         """
@@ -116,7 +124,6 @@ class HX711:
             load_cell: LoadCell
             for load_cell in self._load_cells:
                 gpio_input_read = GPIO.input(load_cell._dout_pin)
-                # print(load_cell._dout_pin, gpio_input_read)
                 if gpio_input_read != 0:
                     ready = False
             if ready:
@@ -144,8 +151,7 @@ class HX711:
         # check if pulse lasted 60ms or longer. If so, HX711 enters power down mode
         if pulse_end - pulse_start >= 0.00006:  # check if the hx 711 did not turn off...
             # if pd_sck pin is HIGH for 60 us and more than the HX 711 enters power down mode.
-            if self._debug_mode:
-                print(f'sck pulse lasted for longer than 60ms\nTime elapsed: {pulse_end - pulse_start}')
+            self._logger.warn(f'sck pulse lasted for longer than 60ms\nTime elapsed: {pulse_end - pulse_start}')
             return False
         return True
     
@@ -192,8 +198,7 @@ class HX711:
         
         # prepare for read by setting SCK pin and checking that each load cell is ready
         if not self._prepare_to_read():
-            if self._debug_mode:
-                print('_prepare_to_read() not ready after 20 iterations')
+            self._logger.warn('_prepare_to_read() not ready after 20 iterations')
             return False
         
         # read first 24 bits of data (the raw data bits)
@@ -242,9 +247,8 @@ class HX711:
         for load_cell in self._load_cells:
             load_cell._calculate_measurement()
             
-        if self._debug_mode:
-            all_load_cell_vars = "\n".join([str(vars(load_cell)) for load_cell in self._load_cells])
-            print(f'Finished read operation. Load cell results:\n{all_load_cell_vars}')
+        all_load_cell_vars = "\n".join([str(vars(load_cell)) for load_cell in self._load_cells])
+        self._logger.debug(f'Finished read operation. Load cell results:\n{all_load_cell_vars}')
 
         load_cell_measurements = [load_cell.measurement_from_offset for load_cell in self._load_cells]
         if self._single_load_cell:
@@ -313,10 +317,10 @@ class LoadCell:
     
     def __init__(self,
                  dout_pin,
-                 debug_mode,
+                 log_level,
                  simulate_pi,
                  ):
-        self._debug_mode = debug_mode
+        self._init_logger(log_level, dout_pin)
         self._simulate_pi = simulate_pi or SIMULATE_PI
         self._dout_pin = dout_pin
         self._offset = 0.
@@ -333,6 +337,10 @@ class LoadCell:
         self.measurement = None # mean of reads
         self.measurement_from_offset = None # measurement minus offset
         self.weight = None # measurement_from_offset divided by weight_multiple
+
+    def _init_logger(self, log_level, dout_pin):
+        self._logger = getLogger(f'hx711-multi-dout{dout_pin}')
+        self._logger.setLevel(log_level)
         
     def zero_from_mean(self):
         """ sets offset based on current value for measurement """
@@ -375,16 +383,14 @@ class LoadCell:
         # convert to signed value
         self._current_signed_value = self.convert_to_signed_value(self._current_raw_read)
         self.reads.append(self._current_signed_value)
-        if self._debug_mode:
-            # print 2's complement value and signed value
-            print(f'Binary value as received: {bin(self._current_raw_read)}\nSigned value: {self._current_signed_value}')
+        # log 2's complement value and signed value
+        self._logger.debug(f'Binary value as received: {bin(self._current_raw_read)}\nSigned value: {self._current_signed_value}')
             
     def convert_to_signed_value(self, raw_value):
         # convert to signed value after verifying value is valid
         # raise error if value is exactly the min or max value, or a value of all 1's
         if raw_value in [0x800000, 0x7FFFFF, 0xFFFFFF]:
-            if self._debug_mode:
-                print('Invalid raw value detected: {}'.format(hex(raw_value)))
+            self._logger.warn('Invalid raw value detected: {}'.format(hex(raw_value)))
             return None  # return None because the data is invalid
         # calculate int from 2's complement
         # check if the sign bit is 1, indicating a negative number
