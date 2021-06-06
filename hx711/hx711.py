@@ -13,7 +13,8 @@ import logging
 
 class HX711:
     """
-    HX711 class holds data for one or multiple load cells. All load cells must be using the same clock signal and be the same channel and gain setting
+    HX711 class holds data for one or multiple load cells.
+    All load cells must be using the same clock signal and be the same channel and gain setting
     
     Args:
         dout_pin (int or [int]): Raspberry Pi GPIO pins where data from HX711 is received
@@ -239,6 +240,13 @@ class HX711:
         logging.debug(f'Finished read operation. Load cell results:\n{all_load_cell_vars}')
 
         load_cell_measurements = [load_cell.measurement_from_offset for load_cell in self._load_cells]
+
+        if not load_cell_measurements or all(x is None for x in load_cell_measurements):
+            logging.critical(f'All load cell measurements failed. '
+                'This is either due to all load cells actually failing, '
+                'or if you have set all_or_nothing=True and 1 or more load calls failed')
+
+        # return a single value if there was only a single dout pin set during initialization
         if self._single_load_cell:
             return load_cell_measurements[0]
         else:
@@ -329,7 +337,8 @@ class LoadCell:
         if self.measurement:
             self._offset = self.measurement
         else:
-            raise ValueError(f'Trying to zero LoadCell (dout={self._dout_pin}) with a bad mean value\nValue of measurement: {self.measurement}')
+            raise ValueError(f'Trying to zero LoadCell (dout={self._dout_pin}) with a bad mean value. '
+                              'Value of measurement: {self.measurement}')
         
     def set_weight_multiple(self, weight_multiple: float):
         """ simply sets multiple. example: scale indicates value of 5000 for 1 gram on scale, weight_multiple = 5000 """
