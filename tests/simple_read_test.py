@@ -26,6 +26,7 @@ try:
         start = perf_counter()
         print('raw', hx711.read_raw())  # get raw data reading from hx711
         read_duration = perf_counter() - start
+        print('weight', hx711.read_weight(use_prev_read=True))  # get weight data from prev read
         print('    read duration: {:.3f} seconds'.format(read_duration))
 except KeyboardInterrupt:
     print('Keyboard interrupt..')

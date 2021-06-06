@@ -252,18 +252,23 @@ class HX711:
         else:
             return load_cell_measurements
     
-    def read_weight(self, readings_to_average: int = 10):
+    def read_weight(self, readings_to_average: int = 10, use_prev_read: bool = False):
         """ read raw data for all load cells and then return with weight conversion
 
         Args:
             readings_to_average (int, optional): number of raw readings to average together. Defaults to 10.
+            use_prev_read (bool, optional): Defaults to False
+                default behavior (false) performs a new read_raw() call and then return weights
 
         Returns:
             list of int: returns data measurements with weight conversion
         """
         
-        # perform raw read operation to get means and then offset and divide by weight multiple
-        self.read_raw(readings_to_average)
+        if not use_prev_read:
+            # perform raw read operation to get means and then offset and divide by weight multiple
+            self.read_raw(readings_to_average)
+
+        # get weight from read operation
         load_cell_weights = [load_cell.weight for load_cell in self._load_cells]
         if self._single_load_cell:
             return load_cell_weights[0]
