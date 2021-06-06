@@ -229,6 +229,7 @@ class HX711:
         # perform reads
         for _ in range(readings_to_average):
             self._read()
+        
         # for each load cell, calculate measurement values
         for load_cell in self._load_cells:
             if load_cell._ready:
@@ -291,12 +292,16 @@ class HX711:
         self.read_raw(readings_to_average)
         load_cell: LoadCell
         for load_cell in self._load_cells:
-            if load_cell._ready or self._all_or_nothing:
+            if load_cell._ready:
+                logging.debug(f'zeroing with {len(load_cell._reads_filtered)} datapoints')
                 load_cell.zero_from_mean()
             
 class LoadCell:
     """
     LoadCell class holds data for one load cell
+
+    Args:
+        dout_pin (int): Raspberry Pi GPIO pin where data from HX711 is received
     """
     
     def __init__(self,
@@ -310,7 +315,7 @@ class LoadCell:
         self.raw_reads = []
         self.reads = []
         self._reads_filtered = []
-        self._max_stdev_from_med = 1.0 # maximium deviation from median
+        self._max_stdev_from_med = 2.0 # maximium deviation from median
         self._read_med = None
         self._devs_from_med = []
         self._read_stdev = 0.
@@ -342,6 +347,7 @@ class LoadCell:
         self.measurement = None
         self.measurement_from_offset = None
         self.weight = None
+        self._init_raw_read()
     
     def _init_raw_read(self):
         """ set raw read value to zero, so each bit can be shifted into this value """
@@ -410,7 +416,12 @@ class LoadCell:
         self._read_stdev = stdev(self._devs_from_med)
         
         # filter by number of standard deviations from med
-        if self._read_stdev:
+        if self._read_stdev > 1000:
+            # if standard deviation is too large, the scale isn't actually ready
+            # sometimes with a bad scale connection, the bit will come back ready out of chance and the binary values are garbage data
+            self._ready = False
+            logging.warn(f'load cell (dout {self._dout_pin}) not ready, stdev from median was over 1k: {self._read_stdev}')
+        elif self._read_stdev:
             self._ratios_to_stdev = [(dev / self._read_stdev) for dev in self._devs_from_med]
         else:
             # stdev is 0. Therefore set to the median
