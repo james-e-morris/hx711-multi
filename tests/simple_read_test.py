@@ -14,20 +14,26 @@ from time import sleep, perf_counter
 #init GPIO (should be done outside HX711 module in case you are using other GPIO functionality)
 GPIO.setmode(GPIO.BCM)  # set GPIO pin mode to BCM numbering
 
+dout_pins = [13,21,16,26,19]
+sck_pin = 20
+weight_multiples = [4489.80, 4458.90, 4392.80, 1, -5177.15]
 
-hx711 = HX711(dout_pins=[13,21,16,26,19], sck_pin=20, all_or_nothing=False, log_level='CRITICAL')  # create an object
+hx711 = HX711(dout_pins=dout_pins, sck_pin=sck_pin, all_or_nothing=False, log_level='CRITICAL')  # create an object
 hx711.power_down()
 hx711.power_up()
 hx711.zero()
+hx711.set_weight_multiples(weight_multiples=weight_multiples)
 
 # read until keyboard interrupt
 try:
     while True:
         start = perf_counter()
-        print('raw', hx711.read_raw())  # get raw data reading from hx711
+        raw_vals = hx711.read_raw(readings_to_average=5)
+        weights = hx711.read_weight(use_prev_read=True)
         read_duration = perf_counter() - start
-        print('weight', hx711.read_weight(use_prev_read=True))  # get weight data from prev read
-        print('    read duration: {:.3f} seconds'.format(read_duration))
+        print('\nread duration: {:.3f} seconds'.format(read_duration))
+        print('raw', ['{:.3f}'.format(x) if x is not None else None for x in raw_vals])
+        print(' wt', ['{:.3f}'.format(x) if x is not None else None for x in weights])
 except KeyboardInterrupt:
     print('Keyboard interrupt..')
 except Exception as e:

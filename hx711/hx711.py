@@ -308,6 +308,36 @@ class HX711:
             if load_cell._ready:
                 logging.debug(f'zeroing with {len(load_cell._reads_filtered)} datapoints')
                 load_cell.zero_from_mean()
+
+    def set_weight_multiples(self, weight_multiples, load_cell_indices = None, dout_pins = None):
+        """
+        Sets the weight mutliples for load cells to be used when calculating weight
+        Example: scale indicates value of 5000 for 1 gram on scale, weight_multiple = 5000 (to convert to weight in grams)
+
+        Args:
+            weight_multiples (float | list of floats): value(s) to be set on load_cells
+            load_cell_indices (int | list of ints, optional): indices of load cell with reference to ordering of dout pins during initialization
+            dout_pins (float | list of floats, optional): use this instead of load_cell_indices if desired
+
+        """
+        weight_multiples = convert_to_list(weight_multiples, _type=None)
+        
+        # if no indices of dout_pins were entered, just create indices as range of length of weight_multiples
+        if load_cell_indices is None and dout_pins is None:
+            load_cell_indices = list(range(len(weight_multiples)))
+                
+        # get load cell based on input
+        load_cell: LoadCell
+        if dout_pins is not None:
+            dout_pins = convert_to_list(dout_pins, _type=int)
+            load_cells = [load_cell for load_cell in self._load_cells if load_cell._dout_pin in dout_pins]
+        else:
+            load_cell_indices = convert_to_list(load_cell_indices, _type=int)
+            load_cells = [load_cell for (i, load_cell) in enumerate(self._load_cells) if i in load_cell_indices]
+
+        # set weight multiples to load cells
+        for load_cell, weight_multiple in zip(load_cells, weight_multiples):
+            load_cell._weight_multiple = weight_multiple
             
 class LoadCell:
     """
