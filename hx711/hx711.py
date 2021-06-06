@@ -39,7 +39,7 @@ class HX711:
                  log_level: str = 'WARN',
                  ):
         
-        self._init_logger(log_level)
+        logging.basicConfig(level=log_level, format='HX711 :: %(asctime)s :: %(levelname)s :: %(message)s')
         self._single_load_cell = False
         self._set_dout_pins(dout_pins)
         self._set_sck_pin(sck_pin)
@@ -48,12 +48,6 @@ class HX711:
         self._set_channel_a_gain(channel_A_gain)
         self._set_channel_select(channel_select)
         self._init_load_cells()
-                
-    def _init_logger(self, log_level):
-        """ initialize logger for the HX711 class """
-        self._log_level = log_level
-        self._logger = logging.getLogger('HX711')
-        self._logger.setLevel(log_level)
 
     def _set_dout_pins(self, dout_pins):
         """ set dout_pins as array of ints. If just an int input, turn it into a single array of int """
@@ -94,7 +88,7 @@ class HX711:
         # initialize load cell instances
         self._load_cells = []
         for dout_pin in self._dout_pins:
-            self._load_cells.append(LoadCell(dout_pin, self._log_level))
+            self._load_cells.append(LoadCell(dout_pin))
 
     def _prepare_to_read(self):
         """
@@ -107,8 +101,9 @@ class HX711:
         GPIO.output(self._sck_pin, False)  # start by setting the pd_sck to 0
         
         # check if ready a maximum of 20 times (~200ms)
+        # should usually be about 10 iterations with 10Hz sampling
         ready = True
-        for _ in range(20):
+        for i in range(20):
             # confirm all dout pins are ready (LOW)
             ready = True
             load_cell: LoadCell
@@ -120,7 +115,11 @@ class HX711:
                 break
             else:
                 # if not ready sleep for 10ms before next iteration
-                sleep(0.01)                
+                sleep(0.01)  
+        if ready:
+            logging.debug(f'checked sensor readiness, completed after {i+1} iterations')
+        else:
+            logging.warn(f'checked sensor readiness, not ready after {i+1} iterations')              
         return ready
     
     def _pulse_sck_high(self):
@@ -138,7 +137,7 @@ class HX711:
         # check if pulse lasted 60ms or longer. If so, HX711 enters power down mode
         if pulse_end - pulse_start >= 0.00006:  # check if the hx 711 did not turn off...
             # if pd_sck pin is HIGH for 60 us and more than the HX 711 enters power down mode.
-            self._logger.warn(f'sck pulse lasted for longer than 60ms\nTime elapsed: {pulse_end - pulse_start}')
+            logging.warn(f'sck pulse lasted for longer than 60us\nTime elapsed: {pulse_end - pulse_start}')
             return False
         return True
     
@@ -185,7 +184,6 @@ class HX711:
         
         # prepare for read by setting SCK pin and checking that each load cell is ready
         if not self._prepare_to_read():
-            self._logger.warn('_prepare_to_read() not ready after 20 iterations')
             return False
         
         # read first 24 bits of data (the raw data bits)
@@ -235,7 +233,7 @@ class HX711:
             load_cell._calculate_measurement()
             
         all_load_cell_vars = "\n".join([str(vars(load_cell)) for load_cell in self._load_cells])
-        self._logger.debug(f'Finished read operation. Load cell results:\n{all_load_cell_vars}')
+        logging.debug(f'Finished read operation. Load cell results:\n{all_load_cell_vars}')
 
         load_cell_measurements = [load_cell.measurement_from_offset for load_cell in self._load_cells]
         if self._single_load_cell:
@@ -300,9 +298,7 @@ class LoadCell:
     
     def __init__(self,
                  dout_pin,
-                 log_level,
                  ):
-        self._init_logger(log_level, dout_pin)
         self._dout_pin = dout_pin
         self._offset = 0.
         self._weight_multiple = 1.
@@ -318,11 +314,6 @@ class LoadCell:
         self.measurement = None # mean of reads
         self.measurement_from_offset = None # measurement minus offset
         self.weight = None # measurement_from_offset divided by weight_multiple
-
-    def _init_logger(self, log_level, dout_pin):
-        """ initialize logger with name including dout_pin for this load cell """
-        self._logger = logging.getLogger(f'HX711-dout_{dout_pin}')
-        self._logger.setLevel(log_level)
         
     def zero_from_mean(self):
         """ sets offset based on current value for measurement """
@@ -361,13 +352,13 @@ class LoadCell:
         self._current_signed_value = self.convert_to_signed_value(self._current_raw_read)
         self.reads.append(self._current_signed_value)
         # log 2's complement value and signed value
-        self._logger.debug(f'Binary value as received: {bin(self._current_raw_read)}\nSigned value: {self._current_signed_value}')
+        logging.debug(f'Binary value: {bin(self._current_raw_read)} -> Signed: {self._current_signed_value}')
             
     def convert_to_signed_value(self, raw_value):
         # convert to signed value after verifying value is valid
         # raise error if value is exactly the min or max value, or a value of all 1's
         if raw_value in [0x800000, 0x7FFFFF, 0xFFFFFF]:
-            self._logger.warn('Invalid raw value detected: {}'.format(hex(raw_value)))
+            logging.debug('Invalid raw value detected: {}'.format(hex(raw_value)))
             return None  # return None because the data is invalid
         # calculate int from 2's complement
         # check if the sign bit is 1, indicating a negative number
