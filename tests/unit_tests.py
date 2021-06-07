@@ -1,13 +1,6 @@
 #!/usr/bin/env python3
 # https://docs.python.org/3/library/unittest.html
 
-# set root dir if being run standlone from subfolder
-if __name__ == '__main__':
-    import sys, pathlib
-    from os.path import abspath
-    ROOT_DIR = str(pathlib.Path(abspath(__file__)).parents[1])  # set root dir as 1 directories up from here
-    sys.path.insert(0, ROOT_DIR)
-
 import unittest
 from hx711_multi import HX711
 
