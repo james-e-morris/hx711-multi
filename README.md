@@ -4,7 +4,8 @@ HX711 class to sample 24-bit ADCs with Python 3 on a Raspberry Pi Rasperry Pi Ze
 
 Description
 -----------
-This library allows to configure and read from one or multiple HX711 load cells with a Raspberry Pi.
+This library allows to configure and read from one or multiple HX711 load cells with a Raspberry Pi. It was developed and tested in Python 3.8 on Raspberry Pi 4B with Raspberry Pi OS Lite v5.10.
+
 Capabilities:
 
 * Configure Raspberry Pi digital pins for reading measurements
@@ -27,7 +28,7 @@ Documentation is included in Docs folder. Default rate of HX711 is 10Hz, unless 
 Getting started
 ---------------
 
-Install with ```pip3 install hx711-multi```
+Install with ```pip3 install hx711multi```
 
 Basic usage example:
 
@@ -35,7 +36,7 @@ Basic usage example:
     #!/usr/bin/env python3
 
     import RPi.GPIO as GPIO  # import GPIO
-    from hx711.hx711 import HX711
+    from hx711_multi_ import HX711
     from time import sleep, perf_counter
 
     #init GPIO (should be done outside HX711 module in case you are using other GPIO functionality)
@@ -72,7 +73,7 @@ Basic usage example:
 
 Author
 -------
-* [James Morris](morrisjam.es)
+* [James Morris](https://morrisjam.es)
 
 License
 -------

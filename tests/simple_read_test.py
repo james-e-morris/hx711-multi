@@ -7,9 +7,9 @@ if __name__ == '__main__':
     ROOT_DIR = str(pathlib.Path(abspath(__file__)).parents[1])  # set root dir as 1 directories up from here
     sys.path.insert(0, ROOT_DIR)
 
+from hx711_multi import HX711
+from time import perf_counter
 import RPi.GPIO as GPIO  # import GPIO
-from hx711.hx711 import HX711
-from time import sleep, perf_counter
 
 #init GPIO (should be done outside HX711 module in case you are using other GPIO functionality)
 GPIO.setmode(GPIO.BCM)  # set GPIO pin mode to BCM numbering

@@ -7,8 +7,7 @@ This file holds HX711 class and LoadCell class which is used within HX711 in ord
 import RPi.GPIO as GPIO
 from time import sleep, perf_counter
 from statistics import mean, median, stdev
-from random import randint
-from hx711.utils import convert_to_list
+from .utils import convert_to_list
 import logging
 
 class HX711:

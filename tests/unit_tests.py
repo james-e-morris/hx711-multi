@@ -9,7 +9,7 @@ if __name__ == '__main__':
     sys.path.insert(0, ROOT_DIR)
 
 import unittest
-from hx711.hx711 import HX711
+from hx711_multi import HX711
 
 class TestStringMethods(unittest.TestCase):
 
