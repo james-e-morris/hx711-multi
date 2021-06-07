@@ -286,7 +286,12 @@ class HX711:
     def power_up(self):
         """ turn on all hx711 by setting SCK pin LOW """
         GPIO.output(self._sck_pin, False)
+        result = self._read()
         sleep(0.4) # 400ms settling time according to documentation
+        if result: 
+            return True
+        else:
+            return False
         
     def reset(self):
         """ resets the hx711 and prepare it for the next reading.
@@ -294,8 +299,7 @@ class HX711:
         Returns: True if pass, False if readings do not come back
         """
         self.power_down()
-        self.power_up()
-        result = self.read_raw(6)
+        result = self.power_up()
         if result:
             return True
         else:

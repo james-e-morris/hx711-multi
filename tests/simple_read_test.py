@@ -12,8 +12,7 @@ sck_pin = 20
 weight_multiples = [4489.80, 4458.90, 4392.80, 1, -5177.15]
 
 hx711 = HX711(dout_pins=dout_pins, sck_pin=sck_pin, all_or_nothing=False, log_level='CRITICAL')  # create an object
-hx711.power_down()
-hx711.power_up()
+hx711.reset()
 hx711.zero()
 hx711.set_weight_multiples(weight_multiples=weight_multiples)
 
