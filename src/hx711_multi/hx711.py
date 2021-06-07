@@ -236,7 +236,7 @@ class HX711:
                 load_cell._calculate_measurement()
             
         all_load_cell_vars = "\n".join([str(vars(load_cell)) for load_cell in self._load_cells])
-        logging.debug(f'Finished read operation. Load cell results:\n{all_load_cell_vars}')
+        logging.info(f'Finished read operation. Load cell results:\n{all_load_cell_vars}')
 
         load_cell_measurements = [load_cell.measurement_from_offset for load_cell in self._load_cells]
 
@@ -356,8 +356,9 @@ class LoadCell:
         self._current_raw_read = 0
         self.raw_reads = []
         self.reads = []
+        self._max_stdev = 100 # maximum standard deviation value of raw reads (future todo: expose for user input? Does this vary per hardware?)
         self._reads_filtered = []
-        self._max_stdev_from_med = 2.0 # maximium deviation from median
+        self._max_number_of_stdev_from_med = 2.0 # maximium number of deviations from median (future todo: expose for user input?)
         self._read_med = None
         self._devs_from_med = []
         self._read_stdev = 0.
@@ -446,7 +447,7 @@ class LoadCell:
         
         # filter reads to valid data only
         self._reads_filtered = [r for r in self.reads if ((r is not None) and (type(r) is int))]
-        if not self._reads_filtered:
+        if not len(self._reads_filtered):
             # no values after filter, so return False to indicate no read value
             return False
         elif len(self._reads_filtered) == 1:
@@ -459,11 +460,11 @@ class LoadCell:
         self._read_stdev = stdev(self._devs_from_med)
         
         # filter by number of standard deviations from med
-        if self._read_stdev > 1000:
+        if self._read_stdev > self._max_stdev:
             # if standard deviation is too large, the scale isn't actually ready
             # sometimes with a bad scale connection, the bit will come back ready out of chance and the binary values are garbage data
             self._ready = False
-            logging.warn(f'load cell (dout {self._dout_pin}) not ready, stdev from median was over 1k: {self._read_stdev}')
+            logging.warn(f'load cell (dout {self._dout_pin}) not ready, stdev from median was over {self._max_stdev}: {self._read_stdev}')
         elif self._read_stdev:
             self._ratios_to_stdev = [(dev / self._read_stdev) for dev in self._devs_from_med]
         else:
@@ -472,7 +473,7 @@ class LoadCell:
             return True
         _new_reads_filtered = []
         for (read_val, ratio) in zip(self._reads_filtered, self._ratios_to_stdev):
-            if ratio <= self._max_stdev_from_med:
+            if ratio <= self._max_number_of_stdev_from_med:
                 _new_reads_filtered.append(read_val)
         self._reads_filtered = _new_reads_filtered
         

@@ -28,7 +28,7 @@ hx711.set_weight_multiples(weight_multiples=weight_multiples)
 try:
     while True:
         start = perf_counter()
-        raw_vals = hx711.read_raw(readings_to_average=5)
+        raw_vals = hx711.read_raw(readings_to_average=10)
         weights = hx711.read_weight(use_prev_read=True)
         read_duration = perf_counter() - start
         print('\nread duration: {:.3f} seconds'.format(read_duration))
