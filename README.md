@@ -28,7 +28,7 @@ Documentation is included in Docs folder. Default rate of HX711 is 10Hz, unless 
 Getting started
 ---------------
 
-Install with ```pip3 install hx711multi```
+Install with ```pip3 install hx711_multi```
 
 Basic usage example:
 
@@ -81,4 +81,4 @@ License
 
 Credits
 ---------
-https://github.com/gandalf15/HX711/ as base starting point
+* https://github.com/gandalf15/HX711/ as base starting point
