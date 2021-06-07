@@ -53,6 +53,9 @@ class HX711:
         self._set_channel_a_gain(channel_A_gain)
         self._set_channel_select(channel_select)
         self._init_load_cells()
+        # perform a read which sets channel and gain
+        self._read()
+        sleep(0.4) # 400ms settling time according to documentation
 
     def _set_dout_pins(self, dout_pins):
         """ set dout_pins as array of ints. If just an int input, turn it into a single array of int """
@@ -283,7 +286,7 @@ class HX711:
     def power_up(self):
         """ turn on all hx711 by setting SCK pin LOW """
         GPIO.output(self._sck_pin, False)
-        sleep(0.01)
+        sleep(0.4) # 400ms settling time according to documentation
         
     def reset(self):
         """ resets the hx711 and prepare it for the next reading.
