@@ -244,7 +244,7 @@ class HX711:
         load_cell_measurements = [load_cell.measurement_from_zero for load_cell in self._load_cells]
 
         if not load_cell_measurements or all(x is None for x in load_cell_measurements):
-            logging.critical(f'All load cell measurements failed. '
+            logging.warning(f'All load cell measurements failed. '
                 'This is either due to all load cells actually failing, '
                 'or if you have set all_or_nothing=True and 1 or more load calls failed')
 
