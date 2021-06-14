@@ -370,17 +370,24 @@ class LoadCell:
         self._devs_from_med = []
         self._read_stdev = 0.
         self._ratios_to_stdev = []
-        self.measurement = None # mean of reads
+        self.measurement = None # mean value of raw reads after filtering
         self.measurement_from_offset = None # measurement minus offset
         self.weight = None # measurement_from_offset divided by weight_multiple
-        
+    
     def zero_from_mean(self):
         """ sets offset based on current value for measurement """
         if self.measurement:
-            self._offset = self.measurement
+            self.zero(self.measurement)
         else:
             raise ValueError(f'Trying to zero LoadCell (dout={self._dout_pin}) with a bad mean value. '
                               'Value of measurement: {self.measurement}')
+    
+    def zero(self, offset: float):
+        """ sets offset based on current value for measurement """
+        if offset:
+            self._offset = offset
+        else:
+            raise ValueError(f'No offset provided to zero() function')
         
     def set_weight_multiple(self, weight_multiple: float):
         """ simply sets multiple. example: scale indicates value of 5000 for 1 gram on scale, weight_multiple = 5000 """
