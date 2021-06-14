@@ -241,10 +241,10 @@ class HX711:
         all_load_cell_vars = "\n".join([str(vars(load_cell)) for load_cell in self._load_cells])
         logging.info(f'Finished read operation. Load cell results:\n{all_load_cell_vars}')
 
-        load_cell_measurements = [load_cell.measurement_from_offset for load_cell in self._load_cells]
+        load_cell_measurements = [load_cell.measurement_from_zero for load_cell in self._load_cells]
 
         if not load_cell_measurements or all(x is None for x in load_cell_measurements):
-            logging.critical(f'All load cell measurements failed. '
+            logging.warning(f'All load cell measurements failed. '
                 'This is either due to all load cells actually failing, '
                 'or if you have set all_or_nothing=True and 1 or more load calls failed')
 
@@ -313,7 +313,7 @@ class HX711:
         for load_cell in self._load_cells:
             if load_cell._ready:
                 logging.debug(f'zeroing with {len(load_cell._reads_filtered)} datapoints')
-                load_cell.zero_from_mean()
+                load_cell.zero_from_last_measurement()
 
     def set_weight_multiples(self, weight_multiples, load_cell_indices = None, dout_pins = None):
         """
@@ -357,7 +357,7 @@ class LoadCell:
                  dout_pin,
                  ):
         self._dout_pin = dout_pin
-        self._offset = 0.
+        self._zero_offset = 0.
         self._weight_multiple = 1.
         self._ready = False
         self._current_raw_read = 0
@@ -370,17 +370,24 @@ class LoadCell:
         self._devs_from_med = []
         self._read_stdev = 0.
         self._ratios_to_stdev = []
-        self.measurement = None # mean of reads
-        self.measurement_from_offset = None # measurement minus offset
-        self.weight = None # measurement_from_offset divided by weight_multiple
-        
-    def zero_from_mean(self):
+        self.measurement = None # mean value of raw reads after filtering
+        self.measurement_from_zero = None # measurement minus offset
+        self.weight = None # measurement_from_zero divided by weight_multiple
+    
+    def zero_from_last_measurement(self):
         """ sets offset based on current value for measurement """
         if self.measurement:
-            self._offset = self.measurement
+            self.zero(self.measurement)
         else:
             raise ValueError(f'Trying to zero LoadCell (dout={self._dout_pin}) with a bad mean value. '
                               'Value of measurement: {self.measurement}')
+    
+    def zero(self, offset: float = None):
+        """ sets offset based on current value for measurement """
+        if offset is not None:
+            self._zero_offset = offset
+        else:
+            raise ValueError(f'No offset provided to zero() function')
         
     def set_weight_multiple(self, weight_multiple: float):
         """ simply sets multiple. example: scale indicates value of 5000 for 1 gram on scale, weight_multiple = 5000 """
@@ -396,7 +403,7 @@ class LoadCell:
         self._read_stdev = 0.
         self._ratios_to_stdev = []
         self.measurement = None
-        self.measurement_from_offset = None
+        self.measurement_from_zero = None
         self.weight = None
         self._init_raw_read()
     
@@ -489,7 +496,7 @@ class LoadCell:
             # no values after filter, so return False to indicate no read value
             return False
         self.measurement = mean(self._reads_filtered)
-        self.measurement_from_offset = self.measurement - self._offset
-        self.weight = self.measurement_from_offset / self._weight_multiple
+        self.measurement_from_zero = self.measurement - self._zero_offset
+        self.weight = self.measurement_from_zero / self._weight_multiple
         
         return True
