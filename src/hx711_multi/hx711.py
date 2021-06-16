@@ -8,7 +8,7 @@ import RPi.GPIO as GPIO
 from time import sleep, perf_counter
 from statistics import mean, median, stdev
 from .utils import convert_to_list
-import logging
+from logging import getLogger, Logger, StreamHandler
 
 class HX711:
     """
@@ -44,7 +44,12 @@ class HX711:
                  log_level: str = 'WARN',
                  ):
         
-        logging.basicConfig(level=log_level, format='HX711 :: %(asctime)s :: %(levelname)s :: %(message)s')
+        
+        self._logger: Logger = getLogger('hx711-multi')
+        self._logger.setLevel(log_level)
+        consoleLogHandler = StreamHandler()
+        consoleLogHandler.setLevel(log_level)
+        self._logger.addHandler(consoleLogHandler)
         self._all_or_nothing = all_or_nothing
         self._set_dout_pins(dout_pins)
         self._set_sck_pin(sck_pin)
@@ -95,7 +100,7 @@ class HX711:
         # initialize load cell instances
         self._load_cells = []
         for dout_pin in self._dout_pins:
-            self._load_cells.append(LoadCell(dout_pin))
+            self._load_cells.append(LoadCell(dout_pin=dout_pin, logger=self._logger))
 
     def _prepare_to_read(self):
         """
@@ -118,9 +123,9 @@ class HX711:
                 sleep(0.01)
         ready = all([load_cell._ready for load_cell in self._load_cells])
         if ready:
-            logging.debug(f'checked sensor readiness, completed after {i+1} iterations')
+            self._logger.debug(f'checked sensor readiness, completed after {i+1} iterations')
         else:
-            logging.warn(f'checked sensor readiness, not ready after {i+1} iterations')              
+            self._logger.warn(f'checked sensor readiness, not ready after {i+1} iterations')              
         return ready
     
     def _pulse_sck_high(self):
@@ -138,7 +143,7 @@ class HX711:
         # check if pulse lasted 60ms or longer. If so, HX711 enters power down mode
         if pulse_end - pulse_start >= 0.00006:  # check if the hx 711 did not turn off...
             # if pd_sck pin is HIGH for 60 us and more than the HX 711 enters power down mode.
-            logging.warn(f'sck pulse lasted for longer than 60us\nTime elapsed: {pulse_end - pulse_start}')
+            self._logger.warn(f'sck pulse lasted for longer than 60us\nTime elapsed: {pulse_end - pulse_start}')
             return False
         return True
     
@@ -239,12 +244,12 @@ class HX711:
                 load_cell._calculate_measurement()
             
         all_load_cell_vars = "\n".join([str(vars(load_cell)) for load_cell in self._load_cells])
-        logging.info(f'Finished read operation. Load cell results:\n{all_load_cell_vars}')
+        self._logger.info(f'Finished read operation. Load cell results:\n{all_load_cell_vars}')
 
         load_cell_measurements = [load_cell.measurement_from_zero for load_cell in self._load_cells]
 
         if not load_cell_measurements or all(x is None for x in load_cell_measurements):
-            logging.warning(f'All load cell measurements failed. '
+            self._logger.warning(f'All load cell measurements failed. '
                 'This is either due to all load cells actually failing, '
                 'or if you have set all_or_nothing=True and 1 or more load calls failed')
 
@@ -312,7 +317,7 @@ class HX711:
         load_cell: LoadCell
         for load_cell in self._load_cells:
             if load_cell._ready:
-                logging.debug(f'zeroing with {len(load_cell._reads_filtered)} datapoints')
+                self._logger.debug(f'zeroing with {len(load_cell._reads_filtered)} datapoints')
                 load_cell.zero_from_last_measurement()
 
     def set_weight_multiples(self, weight_multiples, load_cell_indices = None, dout_pins = None):
@@ -354,9 +359,11 @@ class LoadCell:
     """
     
     def __init__(self,
-                 dout_pin,
+                 dout_pin: int,
+                 logger: Logger,
                  ):
         self._dout_pin = dout_pin
+        self._logger = logger
         self._zero_offset = 0.
         self._weight_multiple = 1.
         self._ready = False
@@ -431,13 +438,13 @@ class LoadCell:
         self._current_signed_value = self.convert_to_signed_value(self._current_raw_read)
         self.reads.append(self._current_signed_value)
         # log 2's complement value and signed value
-        logging.debug(f'Binary value: {bin(self._current_raw_read)} -> Signed: {self._current_signed_value}')
+        self._logger.debug(f'Binary value: {bin(self._current_raw_read)} -> Signed: {self._current_signed_value}')
             
     def convert_to_signed_value(self, raw_value):
         # convert to signed value after verifying value is valid
         # raise error if value is exactly the min or max value, or a value of all 1's
         if raw_value in [0x800000, 0x7FFFFF, 0xFFFFFF]:
-            logging.debug('Invalid raw value detected: {}'.format(hex(raw_value)))
+            self._logger.debug('Invalid raw value detected: {}'.format(hex(raw_value)))
             return None  # return None because the data is invalid
         # calculate int from 2's complement
         # check if the sign bit is 1, indicating a negative number
@@ -478,7 +485,7 @@ class LoadCell:
             # if standard deviation is too large, the scale isn't actually ready
             # sometimes with a bad scale connection, the bit will come back ready out of chance and the binary values are garbage data
             self._ready = False
-            logging.warn(f'load cell (dout {self._dout_pin}) not ready, stdev from median was over {self._max_stdev}: {self._read_stdev}')
+            self._logger.warn(f'load cell (dout {self._dout_pin}) not ready, stdev from median was over {self._max_stdev}: {self._read_stdev}')
         elif self._read_stdev:
             self._ratios_to_stdev = [(dev / self._read_stdev) for dev in self._devs_from_med]
         else:
