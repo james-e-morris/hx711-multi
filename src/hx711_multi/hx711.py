@@ -70,24 +70,25 @@ class HX711:
     def _dout_pins(self, dout_pins):
         """ set dout_pins as array of ints. If just an int input, turn it into a single array of int """
         self._single_load_cell = (type(dout_pins) is int)
-        self._dout_pins = convert_to_list(dout_pins, _type=int, _default_output=None)
-        if self._dout_pins is None:
+        _dout_pins_temp = convert_to_list(dout_pins, _type=int, _default_output=None)
+        if _dout_pins_temp is None:
             # raise error if pins not set properly
             raise TypeError(f'dout_pins must be type int or array of int.\nReceived dout_pins: {dout_pins}')
+        self.__dout_pins = _dout_pins_temp
         
     @property
     def _sck_pin(self):
-        return self._sck_pin
+        return self.__sck_pin
     
     @_sck_pin.setter
     def _sck_pin(self, sck_pin):
         if type(sck_pin) is not int:
             raise TypeError(f'sck_pin must be type int.\nReceived sck_pin: {sck_pin}')
-        self._sck_pin = sck_pin
+        self.__sck_pin = sck_pin
         
     @property
     def _channel_A_gain(self):
-        return self._channel_A_gain
+        return self.__channel_A_gain
     
     @_channel_A_gain.setter
     def _channel_A_gain(self, channel_A_gain):
@@ -95,11 +96,11 @@ class HX711:
         if channel_A_gain not in [128, 64]:
             # raise error if channel not 128 or 64
             raise TypeError(f'channel_A_gain must be A or B.\nReceived channel_A_gain: {channel_A_gain}')
-        self._channel_A_gain = channel_A_gain
+        self.__channel_A_gain = channel_A_gain
     
     @property
     def _channel_select(self):
-        return self._channel_select
+        return self.__channel_select
     
     @_channel_select.setter
     def _channel_select(self, channel_select):
@@ -107,7 +108,7 @@ class HX711:
         if channel_select not in ['A', 'B']:
             # raise error if channel not A or B
             raise TypeError(f'channel_select must be A or B.\nReceived channel_select: {channel_select}')
-        self._channel_select = channel_select
+        self.__channel_select = channel_select
 
     def _init_gpio(self):
         # init GPIO
