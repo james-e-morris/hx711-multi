@@ -51,51 +51,71 @@ class HX711:
         consoleLogHandler.setLevel(log_level)
         self._logger.addHandler(consoleLogHandler)
         self._all_or_nothing = all_or_nothing
-        self._set_dout_pins(dout_pins)
-        self._set_sck_pin(sck_pin)
+        self._dout_pins = dout_pins
+        self._sck_pin = sck_pin
         # init GPIO before channel because a read operation is required for channel initialization
         self._init_gpio()
-        self._set_channel_a_gain(channel_A_gain)
-        self._set_channel_select(channel_select)
+        self._channel_A_gain = channel_A_gain
+        self._channel_select = channel_select
         self._init_load_cells()
         # perform a read which sets channel and gain
         self._read()
         sleep(0.4) # 400ms settling time according to documentation
-
-    def _set_dout_pins(self, dout_pins):
+        
+    @property
+    def _dout_pins(self):
+        return self.__dout_pins
+    
+    @_dout_pins.setter
+    def _dout_pins(self, dout_pins):
         """ set dout_pins as array of ints. If just an int input, turn it into a single array of int """
         self._single_load_cell = (type(dout_pins) is int)
-        self._dout_pins = convert_to_list(dout_pins, _type=int, _default_output=None)
-        if self._dout_pins is None:
+        _dout_pins_temp = convert_to_list(dout_pins, _type=int, _default_output=None)
+        if _dout_pins_temp is None:
             # raise error if pins not set properly
             raise TypeError(f'dout_pins must be type int or array of int.\nReceived dout_pins: {dout_pins}')
+        self.__dout_pins = _dout_pins_temp
         
-    def _set_sck_pin(self, sck_pin):
-        # set sck_pin if int
+    @property
+    def _sck_pin(self):
+        return self.__sck_pin
+    
+    @_sck_pin.setter
+    def _sck_pin(self, sck_pin):
         if type(sck_pin) is not int:
             raise TypeError(f'sck_pin must be type int.\nReceived sck_pin: {sck_pin}')
-        self._sck_pin = sck_pin
-                    
+        self.__sck_pin = sck_pin
+        
+    @property
+    def _channel_A_gain(self):
+        return self.__channel_A_gain
+    
+    @_channel_A_gain.setter
+    def _channel_A_gain(self, channel_A_gain):
+        # check channel_select for type and value. Default is A if None
+        if channel_A_gain not in [128, 64]:
+            # raise error if channel not 128 or 64
+            raise TypeError(f'channel_A_gain must be A or B.\nReceived channel_A_gain: {channel_A_gain}')
+        self.__channel_A_gain = channel_A_gain
+    
+    @property
+    def _channel_select(self):
+        return self.__channel_select
+    
+    @_channel_select.setter
+    def _channel_select(self, channel_select):
+        # check channel_select for type and value. Default is A if None
+        if channel_select not in ['A', 'B']:
+            # raise error if channel not A or B
+            raise TypeError(f'channel_select must be A or B.\nReceived channel_select: {channel_select}')
+        self.__channel_select = channel_select
+
     def _init_gpio(self):
         # init GPIO
         GPIO.setup(self._sck_pin, GPIO.OUT)  # sck_pin is output only
         for dout in self._dout_pins:
             GPIO.setup(dout, GPIO.IN)  # dout_pin is input only
             
-    def _set_channel_a_gain(self, channel_A_gain):
-        # check channel_select for type and value. Default is A if None
-        if channel_A_gain not in [128, 64]:
-            # raise error if channel not 128 or 64
-            raise TypeError(f'channel_A_gain must be A or B.\nReceived channel_A_gain: {channel_A_gain}')
-        self._channel_A_gain = channel_A_gain
-        
-    def _set_channel_select(self, channel_select):
-        # check channel_select for type and value. Default is A if None
-        if channel_select not in ['A', 'B']:
-            # raise error if channel not A or B
-            raise TypeError(f'channel_select must be A or B.\nReceived channel_select: {channel_select}')
-        self._channel_select = channel_select
-                
     def _init_load_cells(self):
         # initialize load cell instances
         self._load_cells = []
