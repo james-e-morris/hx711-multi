@@ -407,7 +407,7 @@ class LoadCell:
             self.zero(self.measurement)
         else:
             raise ValueError(f'Trying to zero LoadCell (dout={self._dout_pin}) with a bad mean value. '
-                              'Value of measurement: {self.measurement}')
+                             f'Value of measurement: {self.measurement}')
     
     def zero(self, offset: float = None):
         """ sets offset based on current value for measurement """
