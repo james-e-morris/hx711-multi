@@ -68,12 +68,21 @@ class HX711:
     
     @_dout_pins.setter
     def _dout_pins(self, dout_pins):
-        """ set dout_pins as array of ints. If just an int input, turn it into a single array of int """
-        self._single_load_cell = (type(dout_pins) is int)
-        _dout_pins_temp = convert_to_list(dout_pins, _type=int, _default_output=None)
+        """ set dout_pins as 2 dimensional list of ints. 
+        if just an int input, turn it into a list of list of a single int """
+        _dout_pins_temp = dout_pins
+        # check if dout_pins input as an integer
+        self._single_load_cell = type(dout_pins) is int
+        if self._single_load_cell:
+            _dout_pins_temp = convert_to_list(dout_pins, _type=int)
+        else:
+            # check if any items in list are a list themselves and format entire array as such
+            if any([type(p) is list for p in dout_pins]):
+                _dout_pins_temp = [convert_to_list(d, _type=int) for d in dout_pins]
+                if None in _dout_pins_temp:
+                    raise TypeError(f'dout_pins must be type int or list of int or 2d list of int.\nReceived dout_pins: {dout_pins}')
         if _dout_pins_temp is None:
-            # raise error if pins not set properly
-            raise TypeError(f'dout_pins must be type int or array of int.\nReceived dout_pins: {dout_pins}')
+            raise TypeError(f'dout_pins must be type int or list of int or 2d list of int.\nReceived dout_pins: {dout_pins}')
         self.__dout_pins = _dout_pins_temp
         
     @property
@@ -248,7 +257,7 @@ class HX711:
         """
         
         if not (1 <= readings_to_average <= 100):
-            raise ValueError(f'Parameter "readings_to_average" must be between 1 and 99. Received: {readings_to_average}')
+            raise ValueError(f'Parameter "readings_to_average" must be between 1 and 100. Received: {readings_to_average}')
         
         load_cell: LoadCell
         # init each load cell for a set of reads
@@ -330,10 +339,21 @@ class HX711:
         else:
             return False
         
-    def zero(self, readings_to_average: int = 30):
+    def zero(self, readings_to_average: int = 30, retry_limit: int = 10):
         """ perform raw read of a few samples to get a raw mean measurement, and set this as zero offset """
 
-        self.read_raw(readings_to_average)
+        # try up to retry_limit times to get accurate readings for zeroing
+        readings = None
+        for _ in range(retry_limit):
+            readings_new = self.read_raw(readings_to_average)
+            if readings is not None:
+                readings = [r_new if r_new is not None else r_old for r_new, r_old in zip(readings_new, readings)]
+            else:
+                readings = readings_new
+            if None not in readings:
+                break
+        if None in readings:
+            raise Exception(f'Failed to zero load cells. Readings: {str(readings)}')
         load_cell: LoadCell
         for load_cell in self._load_cells:
             if load_cell._ready:
