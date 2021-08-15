@@ -68,21 +68,12 @@ class HX711:
     
     @_dout_pins.setter
     def _dout_pins(self, dout_pins):
-        """ set dout_pins as 2 dimensional list of ints. 
-        if just an int input, turn it into a list of list of a single int """
-        _dout_pins_temp = dout_pins
-        # check if dout_pins input as an integer
-        self._single_load_cell = type(dout_pins) is int
-        if self._single_load_cell:
-            _dout_pins_temp = convert_to_list(dout_pins, _type=int)
-        else:
-            # check if any items in list are a list themselves and format entire array as such
-            if any([type(p) is list for p in dout_pins]):
-                _dout_pins_temp = [convert_to_list(d, _type=int) for d in dout_pins]
-                if None in _dout_pins_temp:
-                    raise TypeError(f'dout_pins must be type int or list of int or 2d list of int.\nReceived dout_pins: {dout_pins}')
+        """ set dout_pins as array of ints. If just an int input, turn it into a single array of int """
+        self._single_load_cell = (type(dout_pins) is int)
+        _dout_pins_temp = convert_to_list(dout_pins, _type=int, _default_output=None)
         if _dout_pins_temp is None:
-            raise TypeError(f'dout_pins must be type int or list of int or 2d list of int.\nReceived dout_pins: {dout_pins}')
+            # raise error if pins not set properly
+            raise TypeError(f'dout_pins must be type int or array of int.\nReceived dout_pins: {dout_pins}')
         self.__dout_pins = _dout_pins_temp
         
     @property
@@ -451,7 +442,7 @@ class LoadCell:
         self._ratios_to_stdev = []
         self.measurement = None
         self.measurement_from_zero = None
-        self.weight = None
+        # self.weight = None ## don't overwrite weight so we can keep using older weight value
         self._init_raw_read()
     
     def _init_raw_read(self):
