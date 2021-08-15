@@ -248,7 +248,7 @@ class HX711:
         """
         
         if not (1 <= readings_to_average <= 100):
-            raise ValueError(f'Parameter "readings_to_average" must be between 1 and 99. Received: {readings_to_average}')
+            raise ValueError(f'Parameter "readings_to_average" must be between 1 and 100. Received: {readings_to_average}')
         
         load_cell: LoadCell
         # init each load cell for a set of reads
@@ -330,10 +330,21 @@ class HX711:
         else:
             return False
         
-    def zero(self, readings_to_average: int = 30):
+    def zero(self, readings_to_average: int = 30, retry_limit: int = 10):
         """ perform raw read of a few samples to get a raw mean measurement, and set this as zero offset """
 
-        self.read_raw(readings_to_average)
+        # try up to retry_limit times to get accurate readings for zeroing
+        readings = None
+        for _ in range(retry_limit):
+            readings_new = self.read_raw(readings_to_average)
+            if readings is not None:
+                readings = [r_new if r_new is not None else r_old for r_new, r_old in zip(readings_new, readings)]
+            else:
+                readings = readings_new
+            if None not in readings:
+                break
+        if None in readings:
+            raise Exception(f'Failed to zero load cells. Readings: {str(readings)}')
         load_cell: LoadCell
         for load_cell in self._load_cells:
             if load_cell._ready:
@@ -431,7 +442,7 @@ class LoadCell:
         self._ratios_to_stdev = []
         self.measurement = None
         self.measurement_from_zero = None
-        self.weight = None
+        # self.weight = None ## don't overwrite weight so we can keep using older weight value
         self._init_raw_read()
     
     def _init_raw_read(self):
