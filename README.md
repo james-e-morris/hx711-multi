@@ -1,10 +1,10 @@
 # hx711-multi
 
-HX711 class to sample a single 24-bit ADC or multiple with Python 3 on a Raspberry Pi Rasperry Pi Zero, 2 or 3
+HX711 class to sample a 24-bit ADC (or multiple) with Python 3 on a Raspberry Pi Rasperry Pi Zero, 2 or 3
 
 Description
 -----------
-This library allows to configure and read from one or multiple HX711 load cells with a Raspberry Pi. It was developed and tested in Python 3.8 on Raspberry Pi 4B with Raspberry Pi OS Lite v5.10.
+This library allows to configure and read from one or multiple HX711 ADCs with a Raspberry Pi. It was developed and tested in Python 3.8 on Raspberry Pi 4B with Raspberry Pi OS Lite v5.10.
 
 Capabilities:
 
@@ -12,12 +12,12 @@ Capabilities:
 * Configure Raspberry Pi SCK pin, or clock pin, used for configuring channel and triggering measurements
 * Configure Channel (A | B)
 * Configure Channel A Gain (128 | 64)
-* Power down load cell
-* Power up load cell
-* Zero load cell at start
+* Power down ADC
+* Power up ADC
+* Zero ADC at start
 * Configure individual weight multiples for calibration of each scale to real-world weight
-* Read raw measurements from load cells
-* Read weight measurements from load cells
+* Read raw measurements from ADCs
+* Read weight measurements from ADCs
 
 **This package requires RPi.GPIO to be installed in Python 3.**
 
