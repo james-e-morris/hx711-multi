@@ -44,7 +44,6 @@ class HX711:
                  all_or_nothing: bool = True,
                  log_level: str = 'WARN',
                  ):
-
         self._logger: Logger = getLogger('hx711-multi')
         self._logger.setLevel(log_level)
         consoleLogHandler = StreamHandler()
@@ -409,7 +408,7 @@ class ADC:
         _weight_multiple (float):   multiple to convert from raw measurement to real world value
         _ready (bool):              bool for checking sensor ready
         _current_raw_read (int):    current raw read from binary bit read
-        raw_reads ([int]):          raw reads from binary bit read
+        raw_reads ([int]):          raw reads from binary bit read as 2s complement from ADC
         reads ([signed int])        raw reads after convert to signed integer
         _max_stdev (int):           max standard deviation value of raw reads (future todo: expose for user input? Does this vary per hardware?)
         _reads_filtered ([int])     filtered reads after removing failed reads and bad datapoints
