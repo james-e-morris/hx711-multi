@@ -1,6 +1,6 @@
 # hx711-multi
 
-HX711 class to sample 24-bit ADCs with Python 3 on a Raspberry Pi Rasperry Pi Zero, 2 or 3
+HX711 class to sample a single 24-bit ADC or multiple with Python 3 on a Raspberry Pi Rasperry Pi Zero, 2 or 3
 
 Description
 -----------
@@ -23,7 +23,7 @@ Capabilities:
 
 Hardware
 -----------
-Documentation is included in Docs folder. Default rate of HX711 is 10Hz, unless you wire the digital power (DVDD) to the RATE pin (15), at which point you can sample at 80Hz. I've included a picture of this wiring if desired.
+Documentation is included in Docs folder. Default rate of HX711 is 10Hz, unless you wire the power to the RATE pin (15), at which point you can sample at 80Hz. I've included a picture of this wiring if desired.
 
 Getting started
 ---------------
@@ -39,28 +39,40 @@ from hx711_multi import HX711
 from time import perf_counter
 import RPi.GPIO as GPIO  # import GPIO
 
-#init GPIO (should be done outside HX711 module in case you are using other GPIO functionality)
+# init GPIO (should be done outside HX711 module in case you are using other GPIO functionality)
 GPIO.setmode(GPIO.BCM)  # set GPIO pin mode to BCM numbering
 
-dout_pins = [13,21,16,26,19]
+dout_pins = [13, 21, 16, 26, 19]
 sck_pin = 20
 weight_multiples = [4489.80, 4458.90, 4392.80, 1, -5177.15]
 
-hx711 = HX711(dout_pins=dout_pins, sck_pin=sck_pin, all_or_nothing=False, log_level='CRITICAL')  # create an object
+# create hx711 instance
+hx711 = HX711(dout_pins=dout_pins, sck_pin=sck_pin,
+              all_or_nothing=False, log_level='CRITICAL')
+# reset ADC, zero it
 hx711.reset()
-hx711.zero()
+hx711.zero(readings_to_average=30)
 hx711.set_weight_multiples(weight_multiples=weight_multiples)
 
 # read until keyboard interrupt
 try:
     while True:
         start = perf_counter()
+
+        # perform read operation, returns signed integer values as delta from zero()
+        # readings aare filtered for bad data and then averaged
         raw_vals = hx711.read_raw(readings_to_average=10)
+
+        # request weights using multiples set previously with set_weight_multiples()
+        # use_prev_read=True means this function call will not perform a new read, it will use what was acquired during read_raw()
         weights = hx711.read_weight(use_prev_read=True)
+
         read_duration = perf_counter() - start
         print('\nread duration: {:.3f} seconds'.format(read_duration))
-        print('raw', ['{:.3f}'.format(x) if x is not None else None for x in raw_vals])
-        print(' wt', ['{:.3f}'.format(x) if x is not None else None for x in weights])
+        print('raw', ['{:.3f}'.format(x)
+              if x is not None else None for x in raw_vals])
+        print(' wt', ['{:.3f}'.format(x)
+              if x is not None else None for x in weights])
 except KeyboardInterrupt:
     print('Keyboard interrupt..')
 except Exception as e:

@@ -393,24 +393,24 @@ class LoadCell:
                  dout_pin: int,
                  logger: Logger,
                  ):
-        self._dout_pin = dout_pin
-        self._logger = logger
-        self._zero_offset = 0.
-        self._weight_multiple = 1.
-        self._ready = False
-        self._current_raw_read = 0
-        self.raw_reads = []
-        self.reads = []
-        self._max_stdev = 100 # maximum standard deviation value of raw reads (future todo: expose for user input? Does this vary per hardware?)
-        self._reads_filtered = []
+        self._dout_pin = dout_pin   # gpio pin
+        self._logger = logger       # logger
+        self._zero_offset = 0.      # offset set after performing a zero read
+        self._weight_multiple = 1.  # multiple to convert from raw measurement to real world value
+        self._ready = False         # bool for checking sensor ready
+        self._current_raw_read = 0  # current raw read from binary bit read
+        self.raw_reads = []         # raw reads from binary bit read
+        self.reads = []             # raw reads after convert to signed integer
+        self._max_stdev = 100       # maximum standard deviation value of raw reads (future todo: expose for user input? Does this vary per hardware?)
+        self._reads_filtered = []   # filtered reads after removing failed reads and bad datapoints
         self._max_number_of_stdev_from_med = 2.0 # maximium number of deviations from median (future todo: expose for user input?)
-        self._read_med = None
-        self._devs_from_med = []
-        self._read_stdev = 0.
-        self._ratios_to_stdev = []
-        self.measurement = None # mean value of raw reads after filtering
+        self._read_med = None       # median of reads
+        self._devs_from_med = []    # deviations of reads from median
+        self._read_stdev = 0.       # st dev of reads
+        self._ratios_to_stdev = []  # ratios of dev from med of each read to the st dev of all the data
+        self.measurement = None     # mean value of raw reads after filtering
         self.measurement_from_zero = None # measurement minus offset
-        self.weight = None # measurement_from_zero divided by weight_multiple
+        self.weight = None          # measurement_from_zero divided by weight_multiple
     
     def zero_from_last_measurement(self):
         """ sets offset based on current value for measurement """
