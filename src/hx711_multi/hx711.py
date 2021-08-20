@@ -253,9 +253,9 @@ class HX711:
             list of int: returns raw data measurements without unit conversion
         """
 
-        if not (1 <= readings_to_average <= 100):
+        if not (1 <= readings_to_average <= 10000):
             raise ValueError(
-                f'Parameter "readings_to_average" must be between 1 and 100. Received: {readings_to_average}')
+                f'Parameter "readings_to_average" input to read_raw() is way too high... Received: {readings_to_average}')
 
         adc: ADC
         # init each adc for a set of reads
@@ -298,6 +298,10 @@ class HX711:
         Returns:
             list of int: returns data measurements with weight conversion
         """
+
+        if not (1 <= readings_to_average <= 10000):
+            raise ValueError(
+                f'Parameter "readings_to_average" input to read_raw() is way too high... Received: {readings_to_average}')
 
         if not use_prev_read:
             # perform raw read operation to get means and then offset and divide by weight multiple
