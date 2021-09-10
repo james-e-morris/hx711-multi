@@ -3,6 +3,7 @@
 This file holds general utilities used elsewhere in the code
 """
 
+
 def convert_to_list(input, _type=int, _default_output=None):
     """
     Converts the input to a list if not already.
