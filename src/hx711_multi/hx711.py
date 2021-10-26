@@ -356,14 +356,19 @@ class HX711:
                 readings = readings_new
             if None not in readings:
                 break
-        if None in readings:
-            raise Exception(f'Failed to zero ADCs. Readings: {str(readings)}')
+        zeroing_errors = []
         adc: ADC
         for adc in self._adcs:
             if adc._ready:
                 self._logger.debug(
                     f'zeroing with {len(adc._reads_filtered)} datapoints')
-                adc.zero_from_last_measurement()
+                try:
+                    adc.zero_from_last_measurement()
+                except Exception as e:
+                    zeroing_errors.append(e)
+                    continue
+        if zeroing_errors:
+            raise Exception(f'Failed to zero all ADCs. Errors: {str(zeroing_errors)}')
 
     def set_weight_multiples(self, weight_multiples, adc_indices=None, dout_pins=None):
         """

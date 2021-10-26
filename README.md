@@ -47,11 +47,16 @@ sck_pin = 20
 weight_multiples = [4489.80, 4458.90, 4392.80, 1, -5177.15]
 
 # create hx711 instance
-hx711 = HX711(dout_pins=dout_pins, sck_pin=sck_pin,
-              all_or_nothing=False, log_level='CRITICAL')
+hx711 = HX711(dout_pins=dout_pins,
+              sck_pin=sck_pin,
+              all_or_nothing=False,
+              log_level='CRITICAL')
 # reset ADC, zero it
 hx711.reset()
-hx711.zero(readings_to_average=30)
+try:
+    hx711.zero(readings_to_average=30)
+except Exception as e:
+    print(e)
 hx711.set_weight_multiples(weight_multiples=weight_multiples)
 
 # read until keyboard interrupt
@@ -69,10 +74,11 @@ try:
 
         read_duration = perf_counter() - start
         print('\nread duration: {:.3f} seconds'.format(read_duration))
-        print('raw', ['{:.3f}'.format(x)
-              if x is not None else None for x in raw_vals])
-        print(' wt', ['{:.3f}'.format(x)
-              if x is not None else None for x in weights])
+        print(
+            'raw',
+            ['{:.3f}'.format(x) if x is not None else None for x in raw_vals])
+        print(' wt',
+              ['{:.3f}'.format(x) if x is not None else None for x in weights])
 except KeyboardInterrupt:
     print('Keyboard interrupt..')
 except Exception as e:
