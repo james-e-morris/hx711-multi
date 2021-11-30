@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 This file holds HX711 class and ADC class which is used within HX711 in order to track multiple ADCs
@@ -35,15 +34,15 @@ class HX711:
             if dout_pins not an int or list of ints
             if gain_channel_A or select_channel not match required values
     """
-
-    def __init__(self,
-                 dout_pins,
-                 sck_pin: int,
-                 channel_A_gain: int = 128,
-                 channel_select: str = 'A',
-                 all_or_nothing: bool = True,
-                 log_level: str = 'WARN',
-                 ):
+    def __init__(
+        self,
+        dout_pins,
+        sck_pin: int,
+        channel_A_gain: int = 128,
+        channel_select: str = 'A',
+        all_or_nothing: bool = True,
+        log_level: str = 'WARN',
+    ):
         self._logger: Logger = getLogger('hx711-multi')
         self._logger.setLevel(log_level)
         consoleLogHandler = StreamHandler()
@@ -69,12 +68,14 @@ class HX711:
     def _dout_pins(self, dout_pins):
         """ set dout_pins as array of ints. If just an int input, turn it into a single array of int """
         self._single_adc = (type(dout_pins) is int)
-        _dout_pins_temp = convert_to_list(
-            dout_pins, _type=int, _default_output=None)
+        _dout_pins_temp = convert_to_list(dout_pins,
+                                          _type=int,
+                                          _default_output=None)
         if _dout_pins_temp is None:
             # raise error if pins not set properly
             raise TypeError(
-                f'dout_pins must be type int or array of int.\nReceived dout_pins: {dout_pins}')
+                f'dout_pins must be type int or array of int.\nReceived dout_pins: {dout_pins}'
+            )
         self.__dout_pins = _dout_pins_temp
 
     @property
@@ -98,7 +99,8 @@ class HX711:
         if channel_A_gain not in [128, 64]:
             # raise error if channel not 128 or 64
             raise TypeError(
-                f'channel_A_gain must be A or B.\nReceived channel_A_gain: {channel_A_gain}')
+                f'channel_A_gain must be A or B.\nReceived channel_A_gain: {channel_A_gain}'
+            )
         self.__channel_A_gain = channel_A_gain
 
     @property
@@ -111,7 +113,8 @@ class HX711:
         if channel_select not in ['A', 'B']:
             # raise error if channel not A or B
             raise TypeError(
-                f'channel_select must be A or B.\nReceived channel_select: {channel_select}')
+                f'channel_select must be A or B.\nReceived channel_select: {channel_select}'
+            )
         self.__channel_select = channel_select
 
     def _init_gpio(self):
@@ -171,7 +174,8 @@ class HX711:
         if pulse_end - pulse_start >= 0.00006:
             # if pd_sck pin is HIGH for 60 us and more than the HX 711 enters power down mode.
             self._logger.warn(
-                f'sck pulse lasted for longer than 60us\nTime elapsed: {pulse_end - pulse_start}')
+                f'sck pulse lasted for longer than 60us\nTime elapsed: {pulse_end - pulse_start}'
+            )
             return False
         return True
 
@@ -185,7 +189,7 @@ class HX711:
         B, 32 : total pulses = 26 (24 read data, 2 extra to set dout back to high)
 
         Returns:
-            bool: True if pulsees were all successful
+            bool: True if pulses were all successful
         """
 
         # get number of pulses based on channel configuration
@@ -255,7 +259,8 @@ class HX711:
 
         if not (1 <= readings_to_average <= 10000):
             raise ValueError(
-                f'Parameter "readings_to_average" input to read_raw() is way too high... Received: {readings_to_average}')
+                f'Parameter "readings_to_average" input to read_raw() is way too high... Received: {readings_to_average}'
+            )
 
         adc: ADC
         # init each adc for a set of reads
@@ -277,9 +282,11 @@ class HX711:
         adc_measurements = [adc.measurement_from_zero for adc in self._adcs]
 
         if not adc_measurements or all(x is None for x in adc_measurements):
-            self._logger.warning(f'All ADC measurements failed. '
-                                 'This is either due to all ADCs actually failing, '
-                                 'or if you have set all_or_nothing=True and 1 or more ADCs failed')
+            self._logger.warning(
+                f'All ADC measurements failed. '
+                'This is either due to all ADCs actually failing, '
+                'or if you have set all_or_nothing=True and 1 or more ADCs failed'
+            )
 
         # return a single value if there was only a single dout pin set during initialization
         if self._single_adc:
@@ -287,7 +294,9 @@ class HX711:
         else:
             return adc_measurements
 
-    def read_weight(self, readings_to_average: int = 10, use_prev_read: bool = False):
+    def read_weight(self,
+                    readings_to_average: int = 10,
+                    use_prev_read: bool = False):
         """ read raw data for all ADCs and then return with weight conversion
 
         Args:
@@ -301,7 +310,8 @@ class HX711:
 
         if not (1 <= readings_to_average <= 10000):
             raise ValueError(
-                f'Parameter "readings_to_average" input to read_raw() is way too high... Received: {readings_to_average}')
+                f'Parameter "readings_to_average" input to read_raw() is way too high... Received: {readings_to_average}'
+            )
 
         if not use_prev_read:
             # perform raw read operation to get means and then offset and divide by weight multiple
@@ -350,8 +360,10 @@ class HX711:
         for _ in range(retry_limit):
             readings_new = self.read_raw(readings_to_average)
             if readings is not None:
-                readings = [r_new if r_new is not None else r_old for r_new, r_old in zip(
-                    readings_new, readings)]
+                readings = [
+                    r_new if r_new is not None else r_old
+                    for r_new, r_old in zip(readings_new, readings)
+                ]
             else:
                 readings = readings_new
             if None not in readings:
@@ -368,9 +380,13 @@ class HX711:
                     zeroing_errors.append(e)
                     continue
         if zeroing_errors:
-            raise Exception(f'Failed to zero all ADCs. Errors: {str(zeroing_errors)}')
+            raise Exception(
+                f'Failed to zero all ADCs. Errors: {str(zeroing_errors)}')
 
-    def set_weight_multiples(self, weight_multiples, adc_indices=None, dout_pins=None):
+    def set_weight_multiples(self,
+                             weight_multiples,
+                             adc_indices=None,
+                             dout_pins=None):
         """
         Sets the weight mutliples for ADCs to be used when calculating weight
         Example: scale indicates value of 5000 for 1 gram on scale, weight_multiple = 5000 (to convert to weight in grams)
@@ -394,8 +410,9 @@ class HX711:
             adcs = [adc for adc in self._adcs if adc._dout_pin in dout_pins]
         else:
             adc_indices = convert_to_list(adc_indices, _type=int)
-            adcs = [adc for (i, adc) in enumerate(
-                self._adcs) if i in adc_indices]
+            adcs = [
+                adc for (i, adc) in enumerate(self._adcs) if i in adc_indices
+            ]
 
         # set weight multiples to ADCs
         for adc, weight_multiple in zip(adcs, weight_multiples):
@@ -430,11 +447,11 @@ class ADC:
         measurement_from_zero (float): measurement minus offset
         weight (float):             measurement_from_zero divided by weight_multiple
     """
-
-    def __init__(self,
-                 dout_pin: int,
-                 logger: Logger,
-                 ):
+    def __init__(
+        self,
+        dout_pin: int,
+        logger: Logger,
+    ):
         self._dout_pin = dout_pin
         self._logger = logger
         self._zero_offset = 0.
@@ -459,8 +476,9 @@ class ADC:
         if self.measurement:
             self.zero(self.measurement)
         else:
-            raise ValueError(f'Trying to zero ADC (dout={self._dout_pin}) with a bad mean value. '
-                             f'Value of measurement: {self.measurement}')
+            raise ValueError(
+                f'Trying to zero ADC (dout={self._dout_pin}) with a bad mean value. '
+                f'Value of measurement: {self.measurement}')
 
     def zero(self, offset: float = None):
         """ sets offset based on current value for measurement """
@@ -502,8 +520,8 @@ class ADC:
 
     def _shift_and_read(self):
         """ left shift by one bit then bitwise OR with the new bit """
-        self._current_raw_read = (
-            self._current_raw_read << 1) | GPIO.input(self._dout_pin)
+        self._current_raw_read = (self._current_raw_read << 1) | GPIO.input(
+            self._dout_pin)
 
     def _finish_raw_read(self):
         """ append current raw read value and signed value to raw_reads list and reads list """
@@ -514,14 +532,15 @@ class ADC:
         self.reads.append(self._current_signed_value)
         # log 2's complement value and signed value
         self._logger.debug(
-            f'Binary value: {bin(self._current_raw_read)} -> Signed: {self._current_signed_value}')
+            f'Binary value: {bin(self._current_raw_read)} -> Signed: {self._current_signed_value}'
+        )
 
     def convert_to_signed_value(self, raw_value):
         # convert to signed value after verifying value is valid
         # raise error if value is exactly the min or max value, or a value of all 1's
         if raw_value in [0x800000, 0x7FFFFF, 0xFFFFFF]:
-            self._logger.debug(
-                'Invalid raw value detected: {}'.format(hex(raw_value)))
+            self._logger.debug('Invalid raw value detected: {}'.format(
+                hex(raw_value)))
             return None  # return None because the data is invalid
         # calculate int from 2's complement
         # check if the sign bit is 1, indicating a negative number
@@ -545,8 +564,9 @@ class ADC:
         """
 
         # filter reads to valid data only
-        self._reads_filtered = [r for r in self.reads if (
-            (r is not None) and (type(r) is int))]
+        self._reads_filtered = [
+            r for r in self.reads if ((r is not None) and (type(r) is int))
+        ]
         if not len(self._reads_filtered):
             # no values after filter, so return False to indicate no read value
             return False
@@ -566,7 +586,8 @@ class ADC:
             # sometimes with a bad scale connection, the bit will come back ready out of chance and the binary values are garbage data
             self._ready = False
             self._logger.warn(
-                f'ADC (dout {self._dout_pin}) not ready, stdev from median was over {self._max_stdev}: {self._read_stdev}')
+                f'ADC (dout {self._dout_pin}) not ready, stdev from median was over {self._max_stdev}: {self._read_stdev}'
+            )
         elif self._read_stdev:
             self._ratios_to_stdev = [(dev / self._read_stdev)
                                      for dev in self._devs_from_med]
@@ -575,7 +596,8 @@ class ADC:
             self.measurement = self._read_med
             return True
         _new_reads_filtered = []
-        for (read_val, ratio) in zip(self._reads_filtered, self._ratios_to_stdev):
+        for (read_val, ratio) in zip(self._reads_filtered,
+                                     self._ratios_to_stdev):
             if ratio <= self._max_number_of_stdev_from_med:
                 _new_reads_filtered.append(read_val)
         self._reads_filtered = _new_reads_filtered

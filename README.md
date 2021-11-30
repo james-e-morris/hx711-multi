@@ -4,7 +4,7 @@ HX711 class to sample a 24-bit ADC (or multiple) with Python 3 on a Raspberry Pi
 
 Description
 -----------
-This library allows to configure and read from one or multiple HX711 ADCs with a Raspberry Pi. It was developed and tested in Python 3.8 on Raspberry Pi 4B with Raspberry Pi OS Lite v5.10.
+This library allows the user to configure and read from one or multiple HX711 ADCs with a Raspberry Pi. It was developed and tested in Python 3.8 on Raspberry Pi 4B with Raspberry Pi OS Lite v5.10.
 
 Capabilities:
 
@@ -57,6 +57,10 @@ try:
     hx711.zero(readings_to_average=30)
 except Exception as e:
     print(e)
+# uncomment below loop to see raw 2's complement and read integers
+# for adc in hx711._adcs:
+#     print(adc.raw_reads)  # these are the 2's complemented values read bitwise from the hx711
+#     print(adc.reads)  # these are the raw values after being converted to signed integers
 hx711.set_weight_multiples(weight_multiples=weight_multiples)
 
 # read until keyboard interrupt
@@ -65,7 +69,7 @@ try:
         start = perf_counter()
 
         # perform read operation, returns signed integer values as delta from zero()
-        # readings aare filtered for bad data and then averaged
+        # readings are filtered for bad data and then averaged
         raw_vals = hx711.read_raw(readings_to_average=10)
 
         # request weights using multiples set previously with set_weight_multiples()
@@ -74,11 +78,12 @@ try:
 
         read_duration = perf_counter() - start
         print('\nread duration: {:.3f} seconds'.format(read_duration))
-        print(
-            'raw',
-            ['{:.3f}'.format(x) if x is not None else None for x in raw_vals])
-        print(' wt',
-              ['{:.3f}'.format(x) if x is not None else None for x in weights])
+        print('raw', ['{:.3f}'.format(x) if x is not None else None for x in raw_vals])
+        print(' wt', ['{:.3f}'.format(x) if x is not None else None for x in weights])
+        # uncomment below loop to see raw 2's complement and read integers
+        # for adc in hx711._adcs:
+        #     print(adc.raw_reads)  # these are the 2's complemented values read bitwise from the hx711
+        #     print(adc.reads)  # these are the raw values after being converted to signed integers
 except KeyboardInterrupt:
     print('Keyboard interrupt..')
 except Exception as e:
@@ -90,7 +95,7 @@ GPIO.cleanup()
 
 Author
 -------
-* [James Morris](https://morrisjam.es)
+* James Morris (https://james.pizza)
 
 License
 -------
@@ -98,4 +103,4 @@ License
 
 Credits
 ---------
-* https://github.com/gandalf15/HX711/ as base starting point
+* Starting point: https://github.com/gandalf15/HX711/

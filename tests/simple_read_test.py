@@ -31,6 +31,10 @@ try:
     hx711.zero(readings_to_average=30)
 except Exception as e:
     print(e)
+# uncomment below loop to see raw 2's complement and read integers
+# for adc in hx711._adcs:
+#     print(adc.raw_reads)  # these are the 2's complemented values read bitwise from the hx711
+#     print(adc.reads)  # these are the raw values after being converted to signed integers
 hx711.set_weight_multiples(weight_multiples=weight_multiples)
 
 # read until keyboard interrupt
@@ -48,11 +52,12 @@ try:
 
         read_duration = perf_counter() - start
         print('\nread duration: {:.3f} seconds'.format(read_duration))
-        print(
-            'raw',
-            ['{:.3f}'.format(x) if x is not None else None for x in raw_vals])
-        print(' wt',
-              ['{:.3f}'.format(x) if x is not None else None for x in weights])
+        print('raw', ['{:.3f}'.format(x) if x is not None else None for x in raw_vals])
+        print(' wt', ['{:.3f}'.format(x) if x is not None else None for x in weights])
+        # uncomment below loop to see raw 2's complement and read integers
+        # for adc in hx711._adcs:
+        #     print(adc.raw_reads)  # these are the 2's complemented values read bitwise from the hx711
+        #     print(adc.reads)  # these are the raw values after being converted to signed integers
 except KeyboardInterrupt:
     print('Keyboard interrupt..')
 except Exception as e:
