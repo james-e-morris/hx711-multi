@@ -55,6 +55,8 @@ weight_multiples = [4489.80, 4458.90, 4392.80, 1, -5177.15]
 # create hx711 instance
 hx711 = HX711(dout_pins=dout_pins,
               sck_pin=sck_pin,
+              channel_A_gain=128,
+              channel_select='A',
               all_or_nothing=False,
               log_level='CRITICAL')
 # reset ADC, zero it

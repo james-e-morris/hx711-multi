@@ -16,13 +16,15 @@ import RPi.GPIO as GPIO  # import GPIO
 # init GPIO (should be done outside HX711 module in case you are using other GPIO functionality)
 GPIO.setmode(GPIO.BCM)  # set GPIO pin mode to BCM numbering
 
-dout_pins = [13, 21, 16, 26, 19]
-sck_pin = 20
+dout_pins = [2, 3, 4, 14, 15]
+sck_pin = 1
 weight_multiples = [4489.80, 4458.90, 4392.80, 1, -5177.15]
 
 # create hx711 instance
 hx711 = HX711(dout_pins=dout_pins,
               sck_pin=sck_pin,
+              channel_A_gain=128,
+              channel_select='A',
               all_or_nothing=False,
               log_level='CRITICAL')
 # reset ADC, zero it
@@ -52,8 +54,11 @@ try:
 
         read_duration = perf_counter() - start
         print('\nread duration: {:.3f} seconds'.format(read_duration))
-        print('raw', ['{:.3f}'.format(x) if x is not None else None for x in raw_vals])
-        print(' wt', ['{:.3f}'.format(x) if x is not None else None for x in weights])
+        print(
+            'raw',
+            ['{:.3f}'.format(x) if x is not None else None for x in raw_vals])
+        print(' wt',
+              ['{:.3f}'.format(x) if x is not None else None for x in weights])
         # uncomment below loop to see raw 2's complement and read integers
         # for adc in hx711._adcs:
         #     print(adc.raw_reads)  # these are the 2's complemented values read bitwise from the hx711
