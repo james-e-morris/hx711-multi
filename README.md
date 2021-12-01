@@ -23,7 +23,13 @@ Capabilities:
 
 Hardware
 -----------
-Documentation is included in Docs folder. Default rate of HX711 is 10Hz, unless you wire the power to the RATE pin (15), at which point you can sample at 80Hz. I've included a picture of this wiring if desired.
+General HX711 documentation is included in Docs folder. 
+
+The default sample rate of the HX711 is 10Hz, unless you wire the power to the RATE pin (15), at which point you can sample at 80Hz. I've included a picture of this wiring if desired. The SparkFun board includes a jumper option for this.
+
+[SparkFun Hookup Guide](https://learn.sparkfun.com/tutorials/load-cell-amplifier-hx711-breakout-hookup-guide) - great resource for understanding the wiring to your HX711
+
+[SparkFun Load Cells Guide](https://learn.sparkfun.com/tutorials/getting-started-with-load-cells) - great resource for understanding load cells
 
 Getting started
 ---------------
