@@ -336,6 +336,14 @@ class HX711:
         else:
             return adc_weights
 
+    def get_raw(self):
+        """ simply returns the most recent raw value(s) without performing any new measurements """
+        return self.read_raw(use_prev_read=True)
+
+    def get_weight(self):
+        """ simply returns the most recent calibrated weight value(s) without performing any new measurements """
+        return self.read_weight(use_prev_read=True)
+
     def power_down(self):
         """ turn off all hx711 by setting SCK pin LOW then HIGH """
         GPIO.output(self._sck_pin, False)
