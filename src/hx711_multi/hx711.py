@@ -34,6 +34,7 @@ class HX711:
             if dout_pins not an int or list of ints
             if gain_channel_A or select_channel not match required values
     """
+
     def __init__(
         self,
         dout_pins,
@@ -247,46 +248,56 @@ class HX711:
 
         return True
 
-    def read_raw(self, readings_to_average: int = 10):
+    def read_raw(self, readings_to_average: int = 10, use_prev_read: bool = False):
         """ read raw data for all ADCs, does not perform unit conversion
 
         Args:
             readings_to_average (int, optional): number of raw readings to average together. Defaults to 10.
+            use_prev_read (bool, optional): Defaults to False
+                default behavior (false) performs a new read before returning values
 
         Returns:
             list of int: returns raw data measurements without unit conversion
         """
 
-        if not (1 <= readings_to_average <= 10000):
-            raise ValueError(
-                f'Parameter "readings_to_average" input to read_raw() is way too high... Received: {readings_to_average}'
-            )
+        # if not use_prev_read, acquire new measurements
+        if not use_prev_read:
+            # alert user for bad readings to avg value
+            if not (1 <= readings_to_average <= 10000):
+                raise ValueError(
+                    f'Parameter "readings_to_average" input to read_raw() is way too high... Received: {readings_to_average}'
+                )
 
-        adc: ADC
-        # init each adc for a set of reads
-        for adc in self._adcs:
-            adc._init_set_of_reads()
-        # perform reads
-        for _ in range(readings_to_average):
-            self._read()
+            adc: ADC
+            # init each adc for a set of reads
+            for adc in self._adcs:
+                adc._init_set_of_reads()
+            # perform reads
+            for _ in range(readings_to_average):
+                self._read()
 
-        # for each adc, calculate measurement values
-        for adc in self._adcs:
-            if adc._ready:
-                adc._calculate_measurement()
+            # for each adc, calculate measurement values
+            for adc in self._adcs:
+                if adc._ready:
+                    adc._calculate_measurement()
 
-        all_adc_vars = "\n".join([str(vars(adc)) for adc in self._adcs])
-        self._logger.info(
-            f'Finished read operation. ADC results:\n{all_adc_vars}')
+            all_adc_vars = "\n".join([str(vars(adc)) for adc in self._adcs])
+            self._logger.info(
+                f'Finished read operation. ADC results:\n{all_adc_vars}')
 
-        adc_measurements = [adc.measurement_from_zero for adc in self._adcs]
+            adc_measurements = [
+                adc.measurement_from_zero for adc in self._adcs]
 
-        if not adc_measurements or all(x is None for x in adc_measurements):
-            self._logger.warning(
-                f'All ADC measurements failed. '
-                'This is either due to all ADCs actually failing, '
-                'or if you have set all_or_nothing=True and 1 or more ADCs failed'
-            )
+            if not adc_measurements or all(x is None for x in adc_measurements):
+                self._logger.warning(
+                    f'All ADC measurements failed. '
+                    'This is either due to all ADCs actually failing, '
+                    'or if you have set all_or_nothing=True and 1 or more ADCs failed'
+                )
+        else:
+            # if use_prev_read, just return the adc measurements
+            adc_measurements = [
+                adc.measurement_from_zero for adc in self._adcs]
 
         # return a single value if there was only a single dout pin set during initialization
         if self._single_adc:
@@ -302,18 +313,19 @@ class HX711:
         Args:
             readings_to_average (int, optional): number of raw readings to average together. Defaults to 10.
             use_prev_read (bool, optional): Defaults to False
-                default behavior (false) performs a new read_raw() call and then return weights
+                default behavior (false) performs a new read_raw() call and then returns weights
 
         Returns:
-            list of int: returns data measurements with weight conversion
+            list of float: returns data measurements after weight conversion
         """
 
-        if not (1 <= readings_to_average <= 10000):
-            raise ValueError(
-                f'Parameter "readings_to_average" input to read_raw() is way too high... Received: {readings_to_average}'
-            )
-
         if not use_prev_read:
+            # alert user for bad readings to avg value
+            if not (1 <= readings_to_average <= 10000):
+                raise ValueError(
+                    f'Parameter "readings_to_average" input to read_weight() is way too high... Received: {readings_to_average}'
+                )
+
             # perform raw read operation to get means and then offset and divide by weight multiple
             self.read_raw(readings_to_average)
 
@@ -447,6 +459,7 @@ class ADC:
         measurement_from_zero (float): measurement minus offset
         weight (float):             measurement_from_zero divided by weight_multiple
     """
+
     def __init__(
         self,
         dout_pin: int,
