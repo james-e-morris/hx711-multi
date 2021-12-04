@@ -20,6 +20,7 @@ import RPi.GPIO as GPIO  # import GPIO
 # init GPIO (should be done outside HX711 module in case you are using other GPIO functionality)
 GPIO.setmode(GPIO.BCM)  # set GPIO pin mode to BCM numbering
 
+readings_to_average = 10
 dout_pins = [2, 3, 4, 14, 15]
 sck_pin = 1
 weight_multiples = [4489.80, 4458.90, 4392.80, 1, -5177.15]
@@ -34,7 +35,7 @@ hx711 = HX711(dout_pins=dout_pins,
 # reset ADC, zero it
 hx711.reset()
 try:
-    hx711.zero(readings_to_average=30)
+    hx711.zero(readings_to_average=readings_to_average*3)
 except Exception as e:
     print(e)
 # uncomment below loop to see raw 2's complement and read integers
@@ -50,14 +51,15 @@ try:
 
         # perform read operation, returns signed integer values as delta from zero()
         # readings aare filtered for bad data and then averaged
-        raw_vals = hx711.read_raw(readings_to_average=10)
+        raw_vals = hx711.read_raw(readings_to_average=readings_to_average)
 
         # request weights using multiples set previously with set_weight_multiples()
-        # use_prev_read=True means this function call will not perform a new read, it will use what was acquired during read_raw()
-        weights = hx711.read_weight(use_prev_read=True)
+        # This function call will not perform a new measurement, it will just use what was acquired during read_raw()
+        weights = hx711.get_weight()
 
         read_duration = perf_counter() - start
-        print('\nread duration: {:.3f} seconds'.format(read_duration))
+        sample_rate = readings_to_average/read_duration
+        print('\nread duration: {:.3f} seconds, rate: {:.1f} Hz'.format(read_duration, sample_rate))
         print(
             'raw',
             ['{:.3f}'.format(x) if x is not None else None for x in raw_vals])
