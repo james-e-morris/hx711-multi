@@ -21,9 +21,9 @@ import RPi.GPIO as GPIO  # import GPIO
 GPIO.setmode(GPIO.BCM)  # set GPIO pin mode to BCM numbering
 
 readings_to_average = 10
-dout_pins = [2, 3, 4, 14, 15]
 sck_pin = 1
-weight_multiples = [4489.80, 4458.90, 4392.80, 1, -5177.15]
+dout_pins = [2, 3, 4, 14, 15]
+weight_multiples = [-5176, -5500, -5690, -5484, -5455]
 
 # create hx711 instance
 hx711 = HX711(dout_pins=dout_pins,
