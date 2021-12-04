@@ -8,7 +8,7 @@ from time import sleep, perf_counter
 from statistics import mean, median, stdev
 from .utils import convert_to_list
 from logging import getLogger, Logger, StreamHandler
-
+from typing import List
 
 class HX711:
     """
@@ -34,6 +34,7 @@ class HX711:
             if dout_pins not an int or list of ints
             if gain_channel_A or select_channel not match required values
     """
+
     def __init__(
         self,
         dout_pins,
@@ -48,6 +49,7 @@ class HX711:
         consoleLogHandler = StreamHandler()
         consoleLogHandler.setLevel(log_level)
         self._logger.addHandler(consoleLogHandler)
+        self._single_adc = False
         self._all_or_nothing = all_or_nothing
         self._dout_pins = dout_pins
         self._sck_pin = sck_pin
@@ -247,46 +249,56 @@ class HX711:
 
         return True
 
-    def read_raw(self, readings_to_average: int = 10):
+    def read_raw(self, readings_to_average: int = 10, use_prev_read: bool = False):
         """ read raw data for all ADCs, does not perform unit conversion
 
         Args:
             readings_to_average (int, optional): number of raw readings to average together. Defaults to 10.
+            use_prev_read (bool, optional): Defaults to False
+                default behavior (false) performs a new read before returning values
 
         Returns:
             list of int: returns raw data measurements without unit conversion
         """
 
-        if not (1 <= readings_to_average <= 10000):
-            raise ValueError(
-                f'Parameter "readings_to_average" input to read_raw() is way too high... Received: {readings_to_average}'
-            )
+        # if not use_prev_read, acquire new measurements
+        if not use_prev_read:
+            # alert user for bad readings to avg value
+            if not (1 <= readings_to_average <= 10000):
+                raise ValueError(
+                    f'Parameter "readings_to_average" input to read_raw() is way too high... Received: {readings_to_average}'
+                )
 
-        adc: ADC
-        # init each adc for a set of reads
-        for adc in self._adcs:
-            adc._init_set_of_reads()
-        # perform reads
-        for _ in range(readings_to_average):
-            self._read()
+            adc: ADC
+            # init each adc for a set of reads
+            for adc in self._adcs:
+                adc._init_set_of_reads()
+            # perform reads
+            for _ in range(readings_to_average):
+                self._read()
 
-        # for each adc, calculate measurement values
-        for adc in self._adcs:
-            if adc._ready:
-                adc._calculate_measurement()
+            # for each adc, calculate measurement values
+            for adc in self._adcs:
+                if adc._ready:
+                    adc._calculate_measurement()
 
-        all_adc_vars = "\n".join([str(vars(adc)) for adc in self._adcs])
-        self._logger.info(
-            f'Finished read operation. ADC results:\n{all_adc_vars}')
+            all_adc_vars = "\n".join([str(vars(adc)) for adc in self._adcs])
+            self._logger.info(
+                f'Finished read operation. ADC results:\n{all_adc_vars}')
 
-        adc_measurements = [adc.measurement_from_zero for adc in self._adcs]
+            adc_measurements = [
+                adc.measurement_from_zero for adc in self._adcs]
 
-        if not adc_measurements or all(x is None for x in adc_measurements):
-            self._logger.warning(
-                f'All ADC measurements failed. '
-                'This is either due to all ADCs actually failing, '
-                'or if you have set all_or_nothing=True and 1 or more ADCs failed'
-            )
+            if not adc_measurements or all(x is None for x in adc_measurements):
+                self._logger.warning(
+                    f'All ADC measurements failed. '
+                    'This is either due to all ADCs actually failing, '
+                    'or if you have set all_or_nothing=True and 1 or more ADCs failed'
+                )
+        else:
+            # if use_prev_read, just return the adc measurements
+            adc_measurements = [
+                adc.measurement_from_zero for adc in self._adcs]
 
         # return a single value if there was only a single dout pin set during initialization
         if self._single_adc:
@@ -302,18 +314,19 @@ class HX711:
         Args:
             readings_to_average (int, optional): number of raw readings to average together. Defaults to 10.
             use_prev_read (bool, optional): Defaults to False
-                default behavior (false) performs a new read_raw() call and then return weights
+                default behavior (false) performs a new read_raw() call and then returns weights
 
         Returns:
-            list of int: returns data measurements with weight conversion
+            list of float: returns data measurements after weight conversion
         """
 
-        if not (1 <= readings_to_average <= 10000):
-            raise ValueError(
-                f'Parameter "readings_to_average" input to read_raw() is way too high... Received: {readings_to_average}'
-            )
-
         if not use_prev_read:
+            # alert user for bad readings to avg value
+            if not (1 <= readings_to_average <= 10000):
+                raise ValueError(
+                    f'Parameter "readings_to_average" input to read_weight() is way too high... Received: {readings_to_average}'
+                )
+
             # perform raw read operation to get means and then offset and divide by weight multiple
             self.read_raw(readings_to_average)
 
@@ -323,6 +336,14 @@ class HX711:
             return adc_weights[0]
         else:
             return adc_weights
+
+    def get_raw(self):
+        """ simply returns the most recent raw value(s) without performing any new measurements """
+        return self.read_raw(use_prev_read=True)
+
+    def get_weight(self):
+        """ simply returns the most recent calibrated weight value(s) without performing any new measurements """
+        return self.read_weight(use_prev_read=True)
 
     def power_down(self):
         """ turn off all hx711 by setting SCK pin LOW then HIGH """
@@ -366,7 +387,7 @@ class HX711:
                 ]
             else:
                 readings = readings_new
-            if None not in readings:
+            if (not self._single_adc and None not in readings) or (readings is not None):
                 break
         zeroing_errors = []
         adc: ADC
@@ -418,6 +439,100 @@ class HX711:
         for adc, weight_multiple in zip(adcs, weight_multiples):
             adc._weight_multiple = weight_multiple
 
+    def run_calibration(self, known_weights: List[float] = [], readings_to_average: int = 10, adc_index: int = 0):
+        """ initialize ADC, zero it, prompt user for inputs if needed
+        User runs function with no weight on scale, then adds known weights to scale in order to calculate real-world weight multiple
+
+        Args:
+            known_weights (list of floats, optional): list of known weights that will be used for calibration
+                default empty list prompts user along the way
+            readings_to_average (int, optional): number of raw readings to average together. Defaults to 10.
+                default 10
+            adc_index (int, optional): index of adc to calibrate (if multiple pins have been initialized
+                default 0
+
+        Returns:
+            weight_multiple (float): real-world weight multiple
+        """
+
+        self._logger.debug(f'Running calibration for ADC {adc_index} with {len(known_weights)} known weights')
+
+        # if known weights were entered, speed up script by not prompting user to prepare
+        if not known_weights:
+            input('Remove all weight from scale and press any key to continue..')
+        
+        # reset ADCs, zero them, set adc multiple to 1
+        self.reset()
+        self.zero(readings_to_average=readings_to_average)
+        self._adcs[adc_index]._weight_multiple = 1
+
+        # loop until no more known weights or user has not supplied a known weight input
+        weights_known = []
+        weights_measured = []
+        loop = True
+        i = 0
+        while loop:
+            # if known weights entered as args, set wt_known to this and prompt user to place weight on scale
+            if i < len(known_weights):
+                wt_known = known_weights[i]
+                input(f'Place {wt_known} on scale {adc_index} and press enter to continue..')
+            else:
+                # if weights entered as args, but current index is past last known, set wt_known to None to end loop
+                # else, prompt user for next known weight
+                if known_weights:
+                    wt_known = None
+                else:
+                    wt_known = input(f'Place known weight on scale {adc_index}. Enter this known weight (enter nothing to end): ')
+            # if wt_known has been entered or from args, perform measurement
+            # else, end loop
+            if wt_known:
+                wt_known = float(wt_known)
+                # try up to 10 times to get measurement
+                for _ in range(10):
+                    try:
+                        wt_measured = self.read_raw(
+                            readings_to_average=readings_to_average)
+                        if not self._single_adc:
+                            wt_measured = wt_measured[adc_index]
+                    except:
+                        pass
+                    if wt_measured:
+                        break
+                wt_measured = float(wt_measured)
+                weights_known.append(wt_known)
+                weights_measured.append(wt_measured)
+                try: ratio = round(wt_measured / wt_known, 1)
+                except: ratio = 1
+                print_str = f'measurement/known = {round(wt_measured,1)}/{round(wt_known,1)} = {ratio}'
+                self._logger.debug(print_str)
+                print(print_str) # print for user as well for better user experience when prompting
+            else:
+                loop = False
+            i += 1
+        
+        # if known weights and measured weights, calculate multiples for each and print the data
+        if weights_known and weights_measured:
+            try:
+                calculated_multiples = [measured / known for known,
+                                    measured in zip(weights_known, weights_measured)]
+            except:
+                calculated_multiples = [1]
+            if len(calculated_multiples) > 1:
+                multiples_stdev = round(stdev(calculated_multiples), 0)
+                weight_multiple = round(mean(calculated_multiples), 1)
+            else:
+                multiples_stdev = 0
+                weight_multiple = round(calculated_multiples[0], 1)
+            print_str = f'Scale ratio with {len(weights_known)} samples: {weight_multiple}  |  stdev = {multiples_stdev}'
+            self._logger.debug(print_str)
+            print(print_str) # print for user as well for better user experience when prompting
+            self._adcs[adc_index]._weight_multiple = weight_multiple
+            return weight_multiple
+        else:
+            print_str = 'no measurements taken'
+            self._logger.debug(print_str)
+            print(print_str) # print for user as well for better user experience when prompting
+            return 1
 
 class ADC:
     """
@@ -447,6 +562,7 @@ class ADC:
         measurement_from_zero (float): measurement minus offset
         weight (float):             measurement_from_zero divided by weight_multiple
     """
+
     def __init__(
         self,
         dout_pin: int,
