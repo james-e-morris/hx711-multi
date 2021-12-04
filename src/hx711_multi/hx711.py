@@ -455,6 +455,8 @@ class HX711:
             weight_multiple (float): real-world weight multiple
         """
 
+        self._logger.debug(f'Running calibration for ADC {adc_index} with {len(known_weights)} known weights')
+
         # if known weights were entered, speed up script by not prompting user to prepare
         if not known_weights:
             input('Remove all weight from scale and press any key to continue..')
@@ -501,7 +503,7 @@ class HX711:
                 weights_measured.append(wt_measured)
                 try: ratio = round(wt_measured / wt_known, 1)
                 except: ratio = 1
-                print(f'measurement/known = {round(wt_measured,1)}/{round(wt_known,1)} = {ratio}')
+                self._logger.debug(f'measurement/known = {round(wt_measured,1)}/{round(wt_known,1)} = {ratio}')
             else:
                 loop = False
             i += 1
@@ -516,11 +518,11 @@ class HX711:
             else:
                 multiples_stdev = 0
                 weight_multiple = round(calculated_multiples[0], 1)
-            print(f'\nScale ratio with {len(weights_known)} samples: {weight_multiple}  |  stdev = {multiples_stdev}')
+            self._logger.debug(f'\nScale ratio with {len(weights_known)} samples: {weight_multiple}  |  stdev = {multiples_stdev}')
             self._adcs[adc_index]._weight_multiple = weight_multiple
             return weight_multiple
         else:
-            print('\nno measurements taken')
+            self._logger.debug('\nno measurements taken')
             return 1
 
 class ADC:
