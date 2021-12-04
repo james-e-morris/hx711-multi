@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 
-# set root dir if being run standlone from subfolder
-if __name__ == '__main__':
-    import sys
-    import pathlib
-    from os.path import abspath
-    # set root dir as 1 directories up from here
-    ROOT_DIR = str(pathlib.Path(abspath(__file__)).parents[1])
-    sys.path.insert(0, ROOT_DIR)
+# try to import hx711, first from src dir, second from src dir after adding parent to path, last from pip
+try:
+    from src.hx711_multi import HX711
+except:
+    try:
+        # try after inserting parent folder in path
+        import sys
+        import pathlib
+        from os.path import abspath
+        sys.path.insert(0, str(pathlib.Path(abspath(__file__)).parents[1]))
+        from src.hx711_multi import HX711
+    except:
+        from hx711_multi import HX711
 
-from src.hx711_multi import HX711
 from time import perf_counter
 import RPi.GPIO as GPIO  # import GPIO
 

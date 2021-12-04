@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 
-# set root dir if being run standlone from subfolder
-if __name__ == '__main__':
-    import sys
-    import pathlib
-    from os.path import abspath
-    # set root dir as 1 directories up from here
-    ROOT_DIR = str(pathlib.Path(abspath(__file__)).parents[1])
-    sys.path.insert(0, ROOT_DIR)
+# try to import hx711, first from src dir, second from src dir after adding parent to path, last from pip
+try:
+    from src.hx711_multi import HX711
+except:
+    try:
+        # try after inserting parent folder in path
+        import sys
+        import pathlib
+        from os.path import abspath
+        sys.path.insert(0, str(pathlib.Path(abspath(__file__)).parents[1]))
+        from src.hx711_multi import HX711
+    except:
+        from hx711_multi import HX711
 
-from src.hx711_multi import HX711
 from statistics import mean, stdev
 import RPi.GPIO as GPIO  # import GPIO
 
@@ -34,14 +38,14 @@ if len(sys.argv) > 1:
 
 # prompt for pin inputs if not entered as args
 if sck_pin is None:
-    sck_pin = input('Enter SCK/Clock pin..')
+    sck_pin = input('Enter SCK/Clock pin: ')
     if not sck_pin:
         print('No SCK/Clock pin entered. Exiting..')
         quit()
     else:
         sck_pin = int(sck_pin)
 if dout_pin is None:
-    dout_pin = input('Enter DOut/Measurement pin..')
+    dout_pin = input('Enter DOut/Measurement pin: ')
     if not dout_pin:
         print('No DOut/Measurement pin entered. Exiting..')
         quit()
@@ -100,7 +104,8 @@ try:
             wt_measured = float(wt_measured)
             weights_known.append(wt_known)
             weights_measured.append(wt_measured)
-            ratio = round(wt_measured / wt_known, 1)
+            try: ratio = round(wt_measured / wt_known, 1)
+            except: ratio = 1
             print(
                 f'measurement/known = {round(wt_measured,1)}/{round(wt_known,1)} = {ratio}')
         else:
@@ -121,7 +126,6 @@ try:
             f'\nScale ratio with {len(weights_known)} samples: {weight_multiple}  |  stdev = {multiples_stdev}')
     else:
         print('\nno measurements taken')
-
 
 except KeyboardInterrupt:
     print('Keyboard interrupt..')

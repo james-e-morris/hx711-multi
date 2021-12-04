@@ -49,6 +49,7 @@ class HX711:
         consoleLogHandler = StreamHandler()
         consoleLogHandler.setLevel(log_level)
         self._logger.addHandler(consoleLogHandler)
+        self._single_adc = False
         self._all_or_nothing = all_or_nothing
         self._dout_pins = dout_pins
         self._sck_pin = sck_pin
@@ -386,7 +387,7 @@ class HX711:
                 ]
             else:
                 readings = readings_new
-            if None not in readings:
+            if (not self._single_adc and None not in readings) or (readings is not None):
                 break
         zeroing_errors = []
         adc: ADC
