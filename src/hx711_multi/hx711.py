@@ -503,26 +503,35 @@ class HX711:
                 weights_measured.append(wt_measured)
                 try: ratio = round(wt_measured / wt_known, 1)
                 except: ratio = 1
-                self._logger.debug(f'measurement/known = {round(wt_measured,1)}/{round(wt_known,1)} = {ratio}')
+                print_str = f'measurement/known = {round(wt_measured,1)}/{round(wt_known,1)} = {ratio}'
+                self._logger.debug(print_str)
+                print(print_str) # print for user as well for better user experience when prompting
             else:
                 loop = False
             i += 1
         
         # if known weights and measured weights, calculate multiples for each and print the data
         if weights_known and weights_measured:
-            calculated_multiples = [measured / known for known,
+            try:
+                calculated_multiples = [measured / known for known,
                                     measured in zip(weights_known, weights_measured)]
+            except:
+                calculated_multiples = [1]
             if len(calculated_multiples) > 1:
                 multiples_stdev = round(stdev(calculated_multiples), 0)
                 weight_multiple = round(mean(calculated_multiples), 1)
             else:
                 multiples_stdev = 0
                 weight_multiple = round(calculated_multiples[0], 1)
-            self._logger.debug(f'\nScale ratio with {len(weights_known)} samples: {weight_multiple}  |  stdev = {multiples_stdev}')
+            print_str = f'Scale ratio with {len(weights_known)} samples: {weight_multiple}  |  stdev = {multiples_stdev}'
+            self._logger.debug(print_str)
+            print(print_str) # print for user as well for better user experience when prompting
             self._adcs[adc_index]._weight_multiple = weight_multiple
             return weight_multiple
         else:
-            self._logger.debug('\nno measurements taken')
+            print_str = 'no measurements taken'
+            self._logger.debug(print_str)
+            print(print_str) # print for user as well for better user experience when prompting
             return 1
 
 class ADC:

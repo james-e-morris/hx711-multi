@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+# example run command assuming SCK pin 1, DOut pin 2 and known weights 5,10,50,100: 
+#   `python3 calibrate.py 1 2 5 10 50 100`
+
 # try to import hx711, first from src dir, second from src dir after adding parent to path, last from pip
 try:
     from src.hx711_multi import HX711
@@ -20,7 +23,7 @@ import RPi.GPIO as GPIO  # import GPIO
 # init GPIO (should be done outside HX711 module in case you are using other GPIO functionality)
 GPIO.setmode(GPIO.BCM)  # set GPIO pin mode to BCM numbering
 
-averaging_count = 10  # datapoints to read per measurement
+readings_to_average = 10  # datapoints to read per measurement
 
 # set values using python input args
 # arg 1: SCK/Clock pin
@@ -52,10 +55,6 @@ if dout_pin is None:
     else:
         dout_pin = int(dout_pin)
 
-# if known weights were entered, speed up script by not prompting user to prepare
-if not known_weights:
-    input('Remove all weight from scale and press any key to continue..')
-
 try:
     # create hx711 instance
     hx711 = HX711(dout_pins=dout_pin,
@@ -65,67 +64,8 @@ try:
                   all_or_nothing=False,
                   log_level='CRITICAL')
 
-    # reset ADC, zero it, set weight multiple to 1
-    hx711.reset()
-    hx711.zero(readings_to_average=averaging_count)
-    hx711.set_weight_multiples(weight_multiples=1)
-
-    # loop until no more known weights or user has not supplied a known weight input
-    weights_known = []
-    weights_measured = []
-    loop = True
-    i = 0
-    while loop:
-        # if known weights entered as args, set wt_known to this and prompt user to place weight on scale
-        if i < len(known_weights):
-            wt_known = known_weights[i]
-            input(f'Place {wt_known} on scale and press enter to continue..')
-        else:
-            # if weights entered as args, but current index is past last known, set wt_known to None to end loop
-            # else, prompt user for next known weight
-            if known_weights:
-                wt_known = None
-            else:
-                wt_known = input(
-                    'Place known weight on scale. Enter this known weight (enter nothing to end): ')
-        # if wt_known has been entered or from args, perform measurement
-        # else, end loop
-        if wt_known:
-            wt_known = float(wt_known)
-            # try up to 10 times to get measurement
-            for _ in range(10):
-                try:
-                    wt_measured = hx711.read_raw(
-                        readings_to_average=averaging_count)
-                except:
-                    pass
-                if wt_measured:
-                    break
-            wt_measured = float(wt_measured)
-            weights_known.append(wt_known)
-            weights_measured.append(wt_measured)
-            try: ratio = round(wt_measured / wt_known, 1)
-            except: ratio = 1
-            print(
-                f'measurement/known = {round(wt_measured,1)}/{round(wt_known,1)} = {ratio}')
-        else:
-            loop = False
-        i += 1
-
-    # if known weights and measured weights, calculate multiples for each and print the data
-    if weights_known and weights_measured:
-        calculated_multiples = [measured / known for known,
-                                measured in zip(weights_known, weights_measured)]
-        if len(calculated_multiples) > 1:
-            multiples_stdev = round(stdev(calculated_multiples), 0)
-            weight_multiple = round(mean(calculated_multiples), 1)
-        else:
-            multiples_stdev = 0
-            weight_multiple = round(calculated_multiples[0], 1)
-        print(
-            f'\nScale ratio with {len(weights_known)} samples: {weight_multiple}  |  stdev = {multiples_stdev}')
-    else:
-        print('\nno measurements taken')
+    weight_multiple = hx711.run_calibration(known_weights=known_weights, readings_to_average=readings_to_average)
+    print(f'Weight multiple = {weight_multiple}')
 
 except KeyboardInterrupt:
     print('Keyboard interrupt..')
