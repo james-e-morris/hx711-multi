@@ -92,8 +92,8 @@ try:
         # else, end loop
         if wt_known:
             wt_known = float(wt_known)
-            # try 3 times to get measurement
-            for _ in range(3):
+            # try up to 10 times to get measurement
+            for _ in range(10):
                 try:
                     wt_measured = hx711.read_raw(
                         readings_to_average=averaging_count)

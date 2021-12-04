@@ -8,7 +8,7 @@ from time import sleep, perf_counter
 from statistics import mean, median, stdev
 from .utils import convert_to_list
 from logging import getLogger, Logger, StreamHandler
-
+from typing import List
 
 class HX711:
     """
@@ -439,6 +439,89 @@ class HX711:
         for adc, weight_multiple in zip(adcs, weight_multiples):
             adc._weight_multiple = weight_multiple
 
+    def run_calibration(self, known_weights: List[float] = [], readings_to_average: int = 10, adc_index: int = 0):
+        """ initialize ADC, zero it, prompt user for inputs if needed
+        User runs function with no weight on scale, then adds known weights to scale in order to calculate real-world weight multiple
+
+        Args:
+            known_weights (list of floats, optional): list of known weights that will be used for calibration
+                default empty list prompts user along the way
+            readings_to_average (int, optional): number of raw readings to average together. Defaults to 10.
+                default 10
+            adc_index (int, optional): index of adc to calibrate (if multiple pins have been initialized
+                default 0
+
+        Returns:
+            weight_multiple (float): real-world weight multiple
+        """
+
+        # if known weights were entered, speed up script by not prompting user to prepare
+        if not known_weights:
+            input('Remove all weight from scale and press any key to continue..')
+        
+        # reset ADCs, zero them, set adc multiple to 1
+        self.reset()
+        self.zero(readings_to_average=readings_to_average)
+        self._adcs[adc_index]._weight_multiple = 1
+
+        # loop until no more known weights or user has not supplied a known weight input
+        weights_known = []
+        weights_measured = []
+        loop = True
+        i = 0
+        while loop:
+            # if known weights entered as args, set wt_known to this and prompt user to place weight on scale
+            if i < len(known_weights):
+                wt_known = known_weights[i]
+                input(f'Place {wt_known} on scale {adc_index} and press enter to continue..')
+            else:
+                # if weights entered as args, but current index is past last known, set wt_known to None to end loop
+                # else, prompt user for next known weight
+                if known_weights:
+                    wt_known = None
+                else:
+                    wt_known = input(f'Place known weight on scale {adc_index}. Enter this known weight (enter nothing to end): ')
+            # if wt_known has been entered or from args, perform measurement
+            # else, end loop
+            if wt_known:
+                wt_known = float(wt_known)
+                # try up to 10 times to get measurement
+                for _ in range(10):
+                    try:
+                        wt_measured = self.read_raw(
+                            readings_to_average=readings_to_average)
+                        if not self._single_adc:
+                            wt_measured = wt_measured[adc_index]
+                    except:
+                        pass
+                    if wt_measured:
+                        break
+                wt_measured = float(wt_measured)
+                weights_known.append(wt_known)
+                weights_measured.append(wt_measured)
+                try: ratio = round(wt_measured / wt_known, 1)
+                except: ratio = 1
+                print(f'measurement/known = {round(wt_measured,1)}/{round(wt_known,1)} = {ratio}')
+            else:
+                loop = False
+            i += 1
+        
+        # if known weights and measured weights, calculate multiples for each and print the data
+        if weights_known and weights_measured:
+            calculated_multiples = [measured / known for known,
+                                    measured in zip(weights_known, weights_measured)]
+            if len(calculated_multiples) > 1:
+                multiples_stdev = round(stdev(calculated_multiples), 0)
+                weight_multiple = round(mean(calculated_multiples), 1)
+            else:
+                multiples_stdev = 0
+                weight_multiple = round(calculated_multiples[0], 1)
+            print(f'\nScale ratio with {len(weights_known)} samples: {weight_multiple}  |  stdev = {multiples_stdev}')
+            self._adcs[adc_index]._weight_multiple = weight_multiple
+            return weight_multiple
+        else:
+            print('\nno measurements taken')
+            return 1
 
 class ADC:
     """
