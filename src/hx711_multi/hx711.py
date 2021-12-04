@@ -519,11 +519,11 @@ class HX711:
                 calculated_multiples = [1]
             if len(calculated_multiples) > 1:
                 multiples_stdev = round(stdev(calculated_multiples), 0)
-                weight_multiple = round(mean(calculated_multiples), 1)
+                weight_multiple = mean(calculated_multiples)
             else:
                 multiples_stdev = 0
-                weight_multiple = round(calculated_multiples[0], 1)
-            print_str = f'Scale ratio with {len(weights_known)} samples: {weight_multiple}  |  stdev = {multiples_stdev}'
+                weight_multiple = calculated_multiples[0]
+            print_str = f'Scale ratio with {len(weights_known)} samples: {round(weight_multiple,1)}  |  stdev = {multiples_stdev}'
             self._logger.debug(print_str)
             print(print_str) # print for user as well for better user experience when prompting
             self._adcs[adc_index]._weight_multiple = weight_multiple
