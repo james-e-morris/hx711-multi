@@ -2,7 +2,7 @@
 
 [![Publish to PyPI](https://github.com/morrious/hx711-multi/actions/workflows/python-publish.yml/badge.svg)](https://pypi.org/project/hx711-multi/) [![Downloads](https://pepy.tech/badge/hx711-multi)](https://pepy.tech/project/hx711-multi)
 
-HX711 class to sample a 24-bit ADC (or multiple) with Python 3 on a Raspberry Pi Rasperry Pi Zero, 2 or 3
+HX711 class to sample a 24-bit ADC (or multiple) with Python 3 on a Rasperry Pi Zero, 3 or 4
 
 ## Description
 
