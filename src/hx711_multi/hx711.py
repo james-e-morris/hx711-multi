@@ -121,6 +121,36 @@ class HX711:
             raise TypeError(f'channel_select must be A or B.\nReceived channel_select: {channel_select}')
         self.__channel_select = channel_select
 
+    @property
+    def _init_gpio_func(self):
+        return self.__init_gpio_func
+
+    @_init_gpio_func.setter
+    def _init_gpio_func(self, init_gpio_func):
+        if type(init_gpio_func) is not function:
+            raise TypeError(f'init_gpio_func must be type function.\nReceived init_gpio_func: {init_gpio_func}')
+        self.__init_gpio_func = init_gpio_func
+
+    @property
+    def _gpio_output_func(self):
+        return self.__gpio_output_func
+
+    @_gpio_output_func.setter
+    def _gpio_output_func(self, gpio_output_func):
+        if type(gpio_output_func) is not function:
+            raise TypeError(f'gpio_output_func must be type function.\nReceived gpio_output_func: {gpio_output_func}')
+        self.__gpio_output_func = gpio_output_func
+
+    @property
+    def _gpio_input_func(self):
+        return self.__gpio_input_func
+
+    @_gpio_input_func.setter
+    def _gpio_input_func(self, gpio_input_func):
+        if type(gpio_input_func) is not function:
+            raise TypeError(f'gpio_input_func must be type function.\nReceived gpio_input_func: {gpio_input_func}')
+        self.__gpio_input_func = gpio_input_func
+
     def gpio_sck_output(self, value=False):
         # set GPIO output
         # use external function if passed
