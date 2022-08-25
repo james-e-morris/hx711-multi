@@ -308,7 +308,8 @@ class HX711:
 
     def read_weight(self,
                     readings_to_average: int = 10,
-                    use_prev_read: bool = False):
+                    use_prev_read: bool = False,
+                    fresh_only: bool = False):
         """ read raw data for all ADCs and then return with weight conversion
 
         Args:
@@ -331,7 +332,7 @@ class HX711:
             self.read_raw(readings_to_average)
 
         # get weight from read operation
-        adc_weights = [adc.weight for adc in self._adcs]
+        adc_weights = [adc.weight if (not fresh_only or adc._weight_is_fresh) else None for adc in self._adcs]
         if self._single_adc:
             return adc_weights[0]
         else:
@@ -344,6 +345,10 @@ class HX711:
     def get_weight(self):
         """ simply returns the most recent calibrated weight value(s) without performing any new measurements """
         return self.read_weight(use_prev_read=True)
+
+    def get_fresh_weight(self):
+        """ simply returns the most recent calibrated weight value(s) without performing any new measurements IF FRESH else None"""
+        return self.read_weight(use_prev_read=True, fresh_only=True)
 
     def power_down(self):
         """ turn off all hx711 by setting SCK pin LOW then HIGH """
@@ -460,7 +465,7 @@ class HX711:
         # if known weights were entered, speed up script by not prompting user to prepare
         if not known_weights:
             input('Remove all weight from scale and press any key to continue..')
-        
+
         # reset ADCs, zero them, set adc multiple to 1
         self.reset()
         self.zero(readings_to_average=readings_to_average)
@@ -509,7 +514,7 @@ class HX711:
             else:
                 loop = False
             i += 1
-        
+
         # if known weights and measured weights, calculate multiples for each and print the data
         if weights_known and weights_measured:
             try:
@@ -561,6 +566,7 @@ class ADC:
         measurement (float):        mean value of raw reads after filtering
         measurement_from_zero (float): measurement minus offset
         weight (float):             measurement_from_zero divided by weight_multiple
+        _weight_is_fresh (bool) :   set to False when reading is initialized, set to True at the same time as a new weight
     """
 
     def __init__(
@@ -586,6 +592,7 @@ class ADC:
         self.measurement = None
         self.measurement_from_zero = None
         self.weight = None
+        self._weight_is_fresh = None
 
     def zero_from_last_measurement(self):
         """ sets offset based on current value for measurement """
@@ -619,6 +626,7 @@ class ADC:
         self.measurement = None
         self.measurement_from_zero = None
         # self.weight = None ## don't overwrite weight so we can keep using older weight value
+        self._weight_is_fresh = False
         self._init_raw_read()
 
     def _init_raw_read(self):
@@ -725,5 +733,6 @@ class ADC:
         self.measurement = mean(self._reads_filtered)
         self.measurement_from_zero = self.measurement - self._zero_offset
         self.weight = self.measurement_from_zero / self._weight_multiple
+        self._weight_is_fresh = True
 
         return True
