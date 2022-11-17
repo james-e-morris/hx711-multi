@@ -45,7 +45,8 @@ for _ in range(num_pulses):
     GPIO.output(sck_pin, False)
 
 print(f'Raw read (2s complement): {raw_read}')
-if raw_read in [0x800000, 0x7FFFFF, 0xFFFFFF]:
+if raw_read in [0x000000, 0x800000, 0x7FFFFF, 0xFFFFFF]:
+    # invalid if value is exactly zero, exactly the min or max value, or a value of all 1's
     print(f'Invalid raw value detected')
 # calculate int from 2's complement
 # check if the sign bit is 1, indicating a negative number

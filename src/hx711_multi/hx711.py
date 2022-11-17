@@ -661,8 +661,8 @@ class ADC:
 
     def convert_to_signed_value(self, raw_value):
         # convert to signed value after verifying value is valid
-        # raise error if value is exactly the min or max value, or a value of all 1's
-        if raw_value in [0x800000, 0x7FFFFF, 0xFFFFFF]:
+        # return None if value is exactly zero, the min or max value, or a value of all 1's
+        if raw_value in [0x000000, 0x800000, 0x7FFFFF, 0xFFFFFF]:
             self._logger.debug('Invalid raw value detected: {}'.format(
                 hex(raw_value)))
             return None  # return None because the data is invalid
